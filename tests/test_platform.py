@@ -25,6 +25,12 @@ class RoutingFakeModel:
         if "Rewrite the research request" in system:
             return "integration test brief"
         if "researcher with a search tool" in system:
+            user = messages[-1]["content"] if len(messages) > 1 else ""
+            findings = ""
+            if "Findings:\n" in user:
+                findings = user.split("Findings:\n", 1)[-1].strip()
+            if findings and findings != "(none yet)":
+                return json.dumps({"action": "complete", "reflection": "done"})
             return SEARCH
         if "research supervisor" in system:
             return json.dumps({"action": "research_complete"})
@@ -34,7 +40,56 @@ class RoutingFakeModel:
             return "# Integration Report\n\nA finding [1].\n\n## Sources"
         if "Decompose the research topic" in system:
             return "sub query"
-        return "ok"
+        if "Summarize the web page" in system:
+            return "page summary for research notes"
+        if "perspective" in system.lower() or "expert persona" in system.lower():
+            return json.dumps(
+                {
+                    "perspectives": [
+                        {
+                            "name": "Historian",
+                            "focus": "history",
+                            "expertise": "archives",
+                        },
+                        {
+                            "name": "Engineer",
+                            "focus": "systems",
+                            "expertise": "reliability",
+                        },
+                    ]
+                }
+            )
+        if "hierarchical outline" in system.lower() or "JSON outline" in system:
+            return json.dumps(
+                {
+                    "title": "Report",
+                    "sections": [
+                        {"title": "Background", "description": "context"},
+                        {"title": "Findings", "description": "results"},
+                    ],
+                }
+            )
+        if "Design a report outline" in system:
+            return json.dumps(
+                {
+                    "title": "Report",
+                    "sections": [
+                        {"title": "Background", "description": "context"},
+                        {"title": "Findings", "description": "results"},
+                    ],
+                }
+            )
+        if "rigorous reviewer" in system or "Critique" in system:
+            return "- tighten sourcing"
+        if "verify sources" in system.lower():
+            return json.dumps({"verified": [1], "rejected": []})
+        if (
+            "Deduplicate" in system
+            or "polished Markdown" in system
+            or "citation markers intact" in system
+        ):
+            return messages[-1]["content"] if len(messages) > 1 else "polished"
+        return "ANSWER: insight [1]"
 
 
 @pytest.fixture
@@ -547,3 +602,41 @@ def test_chat_creates_fast_research_run(platform):
     )
     assert again.status_code == 202
     assert again.json()["session_id"] == body["session_id"]
+
+
+def test_deep_research_lifecycle_via_worker(platform):
+    """Deep research must complete end-to-end through API + worker with fakes."""
+    client, app = platform
+    cfg = fake_run_config()
+    cfg.update(
+        {
+            "max_react_tool_calls": 1,
+            "max_discourse_turns": 3,
+            "num_perspectives": 2,
+            "max_researcher_iterations": 2,
+            "allow_clarification": False,
+        }
+    )
+    resp = client.post(
+        "/api/v1/research",
+        json={
+            "question": "Deep integration topic?",
+            "pipeline_id": "deep_research",
+            "config": cfg,
+        },
+    )
+    assert resp.status_code == 202
+    run_id = resp.json()["run_id"]
+    executor = make_executor(app)
+
+    async def drive():
+        job = await app.state.queue.dequeue(timeout=1)
+        assert job["run_id"] == run_id
+        return await executor.execute(run_id)
+
+    run = client.portal.call(drive)
+    assert run.status.value == "completed", run.error
+    report = client.get(f"/api/v1/research/{run_id}/report").json()
+    assert report["report_markdown"]
+    discourse = client.get(f"/api/v1/research/{run_id}/discourse").json()["turns"]
+    assert discourse

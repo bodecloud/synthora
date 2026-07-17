@@ -112,7 +112,7 @@ async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
 
     # Prefer langchain-mcp-adapters when available.
     try:
-        tools = await _load_via_langchain(servers)
+        tools = await _load_via_langchain(mcp_config, servers)
         if tools:
             return tools
     except Exception as exc:  # noqa: BLE001 — fall back to HTTP list/call
@@ -163,11 +163,15 @@ async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
     return tools
 
 
-async def _load_via_langchain(servers: list[dict]) -> list[MCPTool]:
+async def _load_via_langchain(
+    mcp_config: dict[str, Any], servers: list[dict]
+) -> list[MCPTool]:
     from langchain_mcp_adapters.client import MultiServerMCPClient  # type: ignore
 
     connections: dict[str, dict[str, Any]] = {}
     for i, server in enumerate(servers):
+        if not isinstance(server, dict):
+            continue
         raw_url = str(server.get("url") or "").rstrip("/")
         if not raw_url:
             continue
@@ -178,10 +182,15 @@ async def _load_via_langchain(servers: list[dict]) -> list[MCPTool]:
             continue
         transport = str(server.get("transport") or "sse")
         key = str(server.get("name") or f"server_{i}")
+        headers = _auth_headers(mcp_config, server)
+        conn: dict[str, Any]
         if transport in ("http", "streamable_http", "streamable-http"):
-            connections[key] = {"url": url, "transport": "streamable_http"}
+            conn = {"url": url, "transport": "streamable_http"}
         else:
-            connections[key] = {"url": url, "transport": transport or "sse"}
+            conn = {"url": url, "transport": transport or "sse"}
+        if headers:
+            conn["headers"] = headers
+        connections[key] = conn
     if not connections:
         return []
     client = MultiServerMCPClient(connections)

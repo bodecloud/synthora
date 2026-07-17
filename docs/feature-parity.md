@@ -95,13 +95,10 @@ Verified by `tests/test_isolation.py`.
 
 ## Residual gaps (known)
 
-Closed on ``feat/zero-gap-closure``: compose smoke live ``fast_research`` with
-``fake`` LLM/search, cooperative cancel/steer in the worker loop, fail-loud
-empty-engine / MCP load, MCP HTTP Bearer for session self-calls, chat session
-persistence + transcript UI, RunView awaited cancel/steer, WS reconnect with
-REST event gap-fill, SDK coverage for chat/follow-up/documents/news/settings/
-metrics/MCP, news poller no longer advances ``last_run_at`` on total engine
-failure.
+Closed on ``feat/parity-hardening``: page-content summarization wired into the
+researcher ReAct loop, langchain-mcp connection headers for session auth, MCP
+server fields on New Research UI, SDK news subscription PATCH, and deep_research
+API+worker lifecycle coverage with fake adapters.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory (not a
 dedicated dialog graph) — intentional product shape, not an unfinished stub.

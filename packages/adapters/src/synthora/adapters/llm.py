@@ -228,6 +228,8 @@ class FakeRoutingModel:
             )
         if "Decompose the research topic" in system:
             return "smoke sub-query"
+        if "Summarize the web page" in system:
+            return "smoke page summary"
         if "rigorous reviewer" in system or "Critique" in system:
             return "- Looks complete for a smoke test."
         if "verify sources" in system.lower() or "Verify sources" in system:
@@ -239,6 +241,27 @@ class FakeRoutingModel:
                         {"name": "Engineer", "focus": "reliability", "expertise": "qa"}
                     ]
                 }
+            )
+        if (
+            "hierarchical outline" in system.lower()
+            or "JSON outline" in system
+            or "Design a report outline" in system
+        ):
+            return json.dumps(
+                {
+                    "title": "Smoke Report",
+                    "sections": [{"title": "Findings", "description": "results"}],
+                }
+            )
+        if (
+            "Deduplicate" in system
+            or "polished Markdown" in system
+            or "citation markers intact" in system
+        ):
+            return (
+                messages[-1].get("content", "polished")
+                if len(messages) > 1
+                else "polished"
             )
         return "ok"
 
