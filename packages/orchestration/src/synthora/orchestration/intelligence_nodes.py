@@ -150,11 +150,20 @@ async def outline_node(state: AgentState, config: RunnableConfig) -> dict:
     transcript = "\n".join(
         f"{t.speaker}: {t.utterance}" for t in state.get("discourse", [])
     )
+    kmap = None
+    nodes = state.get("knowledge_nodes") or []
+    if nodes:
+        kmap = KnowledgeMap.from_nodes(
+            nodes,
+            state.get("knowledge_edges") or [],
+            capacity=ctx.config.knowledge_node_capacity,
+        )
     builder = OutlineBuilder(ctx.writer)
     outline = await builder.build(
         state.get("brief", state["question"]),
         notes="\n\n".join(state.get("notes", [])),
         discourse_transcript=transcript,
+        knowledge_map=kmap,
     )
     await ctx.emit(
         RunEventType.OUTLINE_READY,
@@ -172,6 +181,9 @@ async def section_write(state: AgentState, config: RunnableConfig) -> dict:
     citations = state.get("citations") or build_citations(
         state.get("sources", []), ctx.run_id
     )
+    # After citation_verify, drop rejected sources from the writing path.
+    if (state.get("metadata") or {}).get("citations_verified"):
+        citations = [c for c in citations if c.verified]
     from synthora.intelligence.embeddings import default_hash_embeddings
 
     writer = SectionWriter(ctx.writer, embeddings=default_hash_embeddings())
@@ -274,7 +286,10 @@ async def citation_verify(state: AgentState, config: RunnableConfig) -> dict:
             c.confidence = min(c.confidence, 0.3)
         else:
             c.verified = True  # unknown -> keep, don't lose sources
-    return {"citations": citations}
+    return {
+        "citations": citations,
+        "metadata": {**state.get("metadata", {}), "citations_verified": True},
+    }
 
 
 async def bibliography_node(state: AgentState, config: RunnableConfig) -> dict:
@@ -282,7 +297,19 @@ async def bibliography_node(state: AgentState, config: RunnableConfig) -> dict:
     citations = [c for c in state.get("citations", []) if c.verified]
     lines = ["", "## Bibliography", ""]
     for c in sorted(citations, key=lambda c: c.index or 0):
-        meta = ""
+        meta_bits: list[str] = []
+        md = c.metadata or {}
+        authors = md.get("authors")
+        if isinstance(authors, list) and authors:
+            names = [str(a) for a in authors if a][:8]
+            if names:
+                meta_bits.append(", ".join(names))
+        elif isinstance(authors, str) and authors.strip():
+            meta_bits.append(authors.strip())
+        year = md.get("year")
+        if year not in (None, ""):
+            meta_bits.append(f"({year})")
+        meta = f" — {'; '.join(meta_bits)}" if meta_bits else ""
         lines.append(f"[{c.index}] {c.title}{meta}. Available at: {c.url}")
     report = state.get("report", "")
     return {"report": report + "\n" + "\n".join(lines)}

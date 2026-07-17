@@ -30,6 +30,8 @@ _ENV_TO_SETTING: dict[str, tuple[str, str]] = {
     "BRAVE_API_KEY": ("brave", "api_key"),
     "SERPER_API_KEY": ("serper", "api_key"),
     "SERPAPI_API_KEY": ("serpapi", "api_key"),
+    "SEMANTIC_SCHOLAR_API_KEY": ("semantic_scholar", "api_key"),
+    "MOJEEK_API_KEY": ("mojeek", "api_key"),
     "EXA_API_KEY": ("exa", "api_key"),
     "SEARXNG_URL": ("searxng", "base_url"),
     "ELASTICSEARCH_URL": ("elasticsearch", "base_url"),

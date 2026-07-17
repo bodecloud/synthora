@@ -126,6 +126,7 @@ class Citation(BaseModel):
     confidence: float = 1.0
     index: Optional[int] = None  # [n] marker in the report
     verified: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Perspective(BaseModel):

@@ -342,3 +342,27 @@ async def test_simulated_user_turn_asks_followup():
     assert turn.role == "user" and turn.intent == "question"
     assert "edge cases" in turn.utterance
     assert manager.turns[-1] is turn
+
+
+
+async def test_bibliography_includes_authors_and_year():
+    from synthora.orchestration.intelligence_nodes import bibliography_node
+
+    from tests.helpers import graph_config, make_ctx
+
+    ctx = make_ctx()
+    state = {
+        "report": "# Draft",
+        "citations": [
+            Citation(
+                url="https://ex/a",
+                title="Paper A",
+                index=1,
+                verified=True,
+                metadata={"authors": ["Ada Lovelace", "Alan Turing"], "year": 1936},
+            )
+        ],
+    }
+    out = await bibliography_node(state, graph_config(ctx))
+    assert "Ada Lovelace" in out["report"]
+    assert "(1936)" in out["report"]

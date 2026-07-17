@@ -187,3 +187,118 @@ async def test_researcher_summarizes_long_page_content():
     out = await _summarize_findings(ctx, [long])
     assert llm.summarize_calls == 1
     assert out[0].content == "short summary"
+
+
+@pytest.mark.asyncio
+async def test_outline_uses_knowledge_map_from_state():
+    """outline_node must feed prior knowledge_nodes into OutlineBuilder."""
+    import json
+
+    from synthora.core.models import OutlineNode
+    from synthora.intelligence.knowledge_map import KnowledgeMap
+    from synthora.orchestration.intelligence_nodes import outline_node
+
+    from tests.conftest import FakeChatModel
+    from tests.helpers import graph_config, make_ctx
+
+    kmap = KnowledgeMap("Root")
+    child = kmap.add_node("Error correction")
+    writer = FakeChatModel(
+        responses=[
+            json.dumps(
+                {
+                    "title": "Report",
+                    "children": [{"title": "Error correction methods"}],
+                }
+            )
+        ]
+    )
+    ctx = make_ctx(writer=writer)
+    state = {
+        "question": "q",
+        "brief": "brief",
+        "notes": [],
+        "discourse": [],
+        "knowledge_nodes": list(kmap.nodes.values()),
+        "knowledge_edges": kmap.edges,
+    }
+    out = await outline_node(state, graph_config(ctx))
+    outline = out["outline"]
+    assert isinstance(outline, OutlineNode)
+    from synthora.intelligence.outline import flatten_sections
+
+    section = flatten_sections(outline)[0]
+    assert child.id in section.knowledge_node_ids
+
+
+@pytest.mark.asyncio
+async def test_section_write_drops_rejected_citations():
+    from synthora.core.models import Citation, OutlineNode
+    from synthora.orchestration.intelligence_nodes import section_write
+
+    from tests.conftest import FakeChatModel
+    from tests.helpers import graph_config, make_ctx
+
+    writer = FakeChatModel(default="## S\n\nbody [1]")
+    ctx = make_ctx(writer=writer)
+    state = {
+        "question": "q",
+        "brief": "brief",
+        "notes": [],
+        "outline": OutlineNode(title="R", children=[OutlineNode(title="S")]),
+        "metadata": {"citations_verified": True},
+        "citations": [
+            Citation(url="https://ok", title="good", snippet="ok", index=1, verified=True),
+            Citation(
+                url="https://bad",
+                title="junk",
+                snippet="no",
+                index=2,
+                verified=False,
+            ),
+        ],
+    }
+    result = await section_write(state, graph_config(ctx))
+    assert [c.index for c in result["citations"]] == [1]
+    prompt = writer.calls[0][1]["content"]
+    assert "[1]" in prompt
+    assert "[2]" not in prompt
+
+
+def test_build_context_fails_loud_for_unkeyed_tavily(platform):
+    _, app = platform
+    from synthora.core.models import ResearchRun, RunConfig, RunStatus
+    from synthora.persistence.repositories import RunRepositorySQL
+    executor = make_executor(app)
+
+    async def _run():
+        runs = RunRepositorySQL(executor.db)
+        run = ResearchRun(
+            question="needs tavily",
+            pipeline_id="fast_research",
+            workspace_id="default",
+            status=RunStatus.QUEUED,
+            config=RunConfig(search_engines=["tavily"]),
+        )
+        await runs.create(run)
+        with pytest.raises(RuntimeError, match="No usable search engines"):
+            executor.build_context(run)
+
+    client, _ = platform
+    client.portal.call(_run)
+
+
+def test_tavily_reads_workspace_provider_settings(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    from synthora.adapters.provider_settings_context import (
+        reset_provider_settings,
+        set_provider_settings,
+    )
+    from synthora.adapters.search_engines import TavilyEngine
+
+    token = set_provider_settings({"tavily": {"api_key": "settings-tavily-key"}})
+    try:
+        engine = TavilyEngine()
+        assert engine.api_key == "settings-tavily-key"
+    finally:
+        reset_provider_settings(token)

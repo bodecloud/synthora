@@ -6,13 +6,11 @@ Mounted via ``app.include_router(extra_router)`` from ``main``.
 from __future__ import annotations
 
 import json
-import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from synthora.adapters.document_index import document_index
-from synthora.adapters.embeddings import HashEmbeddings, OpenAIEmbeddings
 from synthora.api.auth import current_identity
 from synthora.api.settings import settings
 from synthora.core.models import (
@@ -103,9 +101,9 @@ def _chunk_text(text: str, size: int = 500) -> list[str]:
 
 
 def _embedding_model():
-    if os.environ.get("OPENAI_API_KEY"):
-        return OpenAIEmbeddings()
-    return HashEmbeddings()
+    from synthora.adapters.embeddings import resolve_default_embeddings
+
+    return resolve_default_embeddings()
 
 
 async def _get_run_checked(

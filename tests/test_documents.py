@@ -73,3 +73,35 @@ def test_document_search_empty_query_rejected(docs_client):
     client = docs_client
     resp = client.post("/api/v1/documents/search", json={"query": ""})
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_collection_engine_uses_query_embeddings():
+    """Cosine path should hit when query tokens overlap but are not a substring."""
+    from synthora.adapters.document_index import document_index
+    from synthora.adapters.embeddings import HashEmbeddings
+    from synthora.adapters.search_engines import CollectionEngine
+    from synthora.adapters.workspace_context import set_workspace_id
+
+    document_index.clear()
+    ws = "embed-ws"
+    set_workspace_id(ws)
+    emb = HashEmbeddings()
+    text = "alpha beta gamma delta epsilon"
+    vector = (await emb.embed([text]))[0]
+    document_index.upsert_document(
+        ws,
+        {
+            "id": "doc-1",
+            "title": "Tokens",
+            "content": text,
+            "url": "https://example.com/tokens",
+        },
+        chunks=[{"text": text, "embedding": vector}],
+    )
+    engine = CollectionEngine(documents=[])
+    # Non-contiguous token query: not a substring of the document text.
+    hits = await engine.search("gamma alpha", max_results=3)
+    assert hits, "expected cosine hit without substring match"
+    assert hits[0].engine == "collection"
+    document_index.clear()

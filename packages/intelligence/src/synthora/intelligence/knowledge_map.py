@@ -43,6 +43,27 @@ class KnowledgeMap:
         self.nodes: dict[str, KnowledgeNode] = {self.root.id: self.root}
         self.edges: list[KnowledgeEdge] = []
 
+    @classmethod
+    def from_nodes(
+        cls,
+        nodes: list[KnowledgeNode],
+        edges: Optional[list[KnowledgeEdge]] = None,
+        *,
+        capacity: int = 10,
+        similarity: SimilarityFn = jaccard,
+    ) -> "KnowledgeMap":
+        """Rebuild a map from persisted node/edge state (e.g. after mind_map_upsert)."""
+        if not nodes:
+            raise ValueError("KnowledgeMap.from_nodes requires at least one node")
+        root = next((n for n in nodes if not n.parent_id), nodes[0])
+        kmap = cls.__new__(cls)
+        kmap.capacity = capacity
+        kmap.similarity = similarity
+        kmap.root = root
+        kmap.nodes = {n.id: n for n in nodes}
+        kmap.edges = list(edges or [])
+        return kmap
+
     # -- structure helpers -------------------------------------------------
 
     def children(self, node_id: str) -> list[KnowledgeNode]:

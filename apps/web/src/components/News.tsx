@@ -6,6 +6,9 @@ export function News() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [query, setQuery] = useState("");
   const [cadence, setCadence] = useState("daily");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQuery, setEditQuery] = useState("");
+  const [editCadence, setEditCadence] = useState("daily");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +58,31 @@ export function News() {
     setError(null);
     try {
       await api.deleteNewsSubscription(id);
+      if (editingId === id) setEditingId(null);
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function beginEdit(sub: NewsSubscription) {
+    setEditingId(sub.id);
+    setEditQuery(sub.query);
+    setEditCadence(sub.cadence);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editQuery.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateNewsSubscription(editingId, {
+        query: editQuery.trim(),
+        cadence: editCadence,
+      });
+      setEditingId(null);
       await refresh();
     } catch (e) {
       setError(String(e));
@@ -97,28 +125,74 @@ export function News() {
       <ul className="history-list">
         {subs.map((s) => (
           <li key={s.id}>
-            <div>
-              <strong>{s.query}</strong>
-              <span className="muted"> · {s.cadence}</span>
-            </div>
-            <div className="action-row">
-              <button
-                className="ghost"
-                type="button"
-                disabled={busy}
-                onClick={() => fetchSub(s.id)}
-              >
-                Fetch now
-              </button>
-              <button
-                className="ghost danger"
-                type="button"
-                disabled={busy}
-                onClick={() => removeSub(s.id)}
-              >
-                Delete
-              </button>
-            </div>
+            {editingId === s.id ? (
+              <div className="steer-row">
+                <input
+                  type="text"
+                  value={editQuery}
+                  onChange={(e) => setEditQuery(e.target.value)}
+                  aria-label="edit news query"
+                />
+                <select
+                  value={editCadence}
+                  onChange={(e) => setEditCadence(e.target.value)}
+                  aria-label="edit cadence"
+                >
+                  <option value="hourly">hourly</option>
+                  <option value="daily">daily</option>
+                  <option value="weekly">weekly</option>
+                </select>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={busy || !editQuery.trim()}
+                  onClick={saveEdit}
+                >
+                  Save
+                </button>
+                <button
+                  className="ghost"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setEditingId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <strong>{s.query}</strong>
+                  <span className="muted"> · {s.cadence}</span>
+                </div>
+                <div className="action-row">
+                  <button
+                    className="ghost"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => beginEdit(s)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="ghost"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => fetchSub(s.id)}
+                  >
+                    Fetch now
+                  </button>
+                  <button
+                    className="ghost danger"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => removeSub(s.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>

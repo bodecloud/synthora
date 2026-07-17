@@ -103,15 +103,17 @@ class RunExecutor:
             return await self.queue.drain_steering(run.id)
 
         engines = self._resolve_engines(cfg.search_engines)
+        from synthora.adapters.search_engines import engine_is_usable
+
+        requested_names = [getattr(e, "name", "") for e in engines]
+        engines = [e for e in engines if engine_is_usable(e)]
         engine_names = [getattr(e, "name", "") for e in engines]
-        offline_only = bool(engine_names) and all(
-            n in ("none", "null") for n in engine_names
-        )
-        if not engines or offline_only:
+        if not engines:
             if not (cfg.extra or {}).get("allow_empty_search"):
                 raise RuntimeError(
                     "No usable search engines configured "
-                    f"(got {engine_names or '[]'}). "
+                    f"(requested {requested_names or '[]'}; "
+                    f"usable {engine_names or '[]'}). "
                     "Pass allow_empty_search in config.extra to override."
                 )
 
