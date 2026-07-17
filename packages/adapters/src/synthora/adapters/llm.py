@@ -193,6 +193,9 @@ class FakeRoutingModel:
     all work without an API key. Enable with ``fake:any-model``.
     """
 
+    def __init__(self) -> None:
+        self._supervisor_calls = 0
+
     async def complete(
         self,
         messages: list[dict[str, str]],
@@ -219,6 +222,14 @@ class FakeRoutingModel:
                 {"action": "search", "query": "smoke query", "reflection": "start"}
             )
         if "research supervisor" in system:
+            self._supervisor_calls += 1
+            if self._supervisor_calls <= 1:
+                return json.dumps(
+                    {
+                        "action": "conduct_research",
+                        "topics": ["smoke focus topic"],
+                    }
+                )
             return json.dumps({"action": "research_complete", "reason": "done"})
         if "Compress these research findings" in system:
             return "compressed smoke findings [1]"
@@ -230,6 +241,14 @@ class FakeRoutingModel:
             return "smoke sub-query"
         if "Summarize the web page" in system:
             return "smoke page summary"
+        if "academic literature search" in system:
+            return "smoke lit query one\nsmoke lit query two"
+        if "Generate 2-3 concrete" in system or "investigable hypotheses" in system:
+            return "smoke hypothesis A\nsmoke hypothesis B"
+        if "Identify the most important unanswered" in system or "knowledge gaps" in system:
+            return ""
+        if "academic peer reviewer" in system:
+            return "1. Add one more primary source."
         if "rigorous reviewer" in system or "Critique" in system:
             return "- Looks complete for a smoke test."
         if "verify sources" in system.lower() or "Verify sources" in system:

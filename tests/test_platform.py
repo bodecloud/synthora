@@ -18,7 +18,13 @@ SEARCH = json.dumps({"action": "search", "query": "q"})
 
 
 class RoutingFakeModel:
-    """Stateless fake LLM routed by system prompt (works for every role)."""
+    """Stateless-ish fake LLM routed by system prompt (works for every role).
+
+    Supervisor is stateful: first call conducts research, later calls complete.
+    """
+
+    def __init__(self) -> None:
+        self._supervisor_calls = 0
 
     async def complete(self, messages, *, temperature=0.3, max_tokens=None) -> str:
         system = messages[0]["content"]
@@ -33,6 +39,14 @@ class RoutingFakeModel:
                 return json.dumps({"action": "complete", "reflection": "done"})
             return SEARCH
         if "research supervisor" in system:
+            self._supervisor_calls += 1
+            if self._supervisor_calls <= 1:
+                return json.dumps(
+                    {
+                        "action": "conduct_research",
+                        "topics": ["integration focus topic"],
+                    }
+                )
             return json.dumps({"action": "research_complete"})
         if "Compress these research findings" in system:
             return "compressed findings [1]"
@@ -42,6 +56,15 @@ class RoutingFakeModel:
             return "sub query"
         if "Summarize the web page" in system:
             return "page summary for research notes"
+        if "academic literature search" in system:
+            return "quantum error correction\nsurface code\nthreshold theorem"
+        if "Generate 2-3 concrete" in system or "investigable hypotheses" in system:
+            return "hypothesis A: X holds under Y\nhypothesis B: Z is the limiter"
+        if "Identify the most important unanswered" in system or "knowledge gaps" in system:
+            # Empty gaps → autonomous pipeline synthesizes after one cycle.
+            return ""
+        if "academic peer reviewer" in system:
+            return "1. Strengthen citation density in the findings section."
         if "perspective" in system.lower() or "expert persona" in system.lower():
             return json.dumps(
                 {
@@ -59,17 +82,11 @@ class RoutingFakeModel:
                     ]
                 }
             )
-        if "hierarchical outline" in system.lower() or "JSON outline" in system:
-            return json.dumps(
-                {
-                    "title": "Report",
-                    "sections": [
-                        {"title": "Background", "description": "context"},
-                        {"title": "Findings", "description": "results"},
-                    ],
-                }
-            )
-        if "Design a report outline" in system:
+        if (
+            "hierarchical outline" in system.lower()
+            or "JSON outline" in system
+            or "Design a report outline" in system
+        ):
             return json.dumps(
                 {
                     "title": "Report",
@@ -81,7 +98,7 @@ class RoutingFakeModel:
             )
         if "rigorous reviewer" in system or "Critique" in system:
             return "- tighten sourcing"
-        if "verify sources" in system.lower():
+        if "verify sources" in system.lower() or "You verify sources" in system:
             return json.dumps({"verified": [1], "rejected": []})
         if (
             "Deduplicate" in system
@@ -640,3 +657,59 @@ def test_deep_research_lifecycle_via_worker(platform):
     assert report["report_markdown"]
     discourse = client.get(f"/api/v1/research/{run_id}/discourse").json()["turns"]
     assert discourse
+
+
+def _drive_pipeline(platform, pipeline_id: str, question: str, **cfg_extra):
+    client, app = platform
+    cfg = fake_run_config()
+    cfg.update(
+        {
+            "max_react_tool_calls": 1,
+            "max_discourse_turns": 2,
+            "num_perspectives": 2,
+            "max_researcher_iterations": 2,
+            "max_autonomous_cycles": 1,
+            "allow_clarification": False,
+            **cfg_extra,
+        }
+    )
+    resp = client.post(
+        "/api/v1/research",
+        json={
+            "question": question,
+            "pipeline_id": pipeline_id,
+            "config": cfg,
+        },
+    )
+    assert resp.status_code == 202, resp.text
+    run_id = resp.json()["run_id"]
+    executor = make_executor(app)
+
+    async def drive():
+        job = await app.state.queue.dequeue(timeout=1)
+        assert job["run_id"] == run_id
+        return await executor.execute(run_id)
+
+    run = client.portal.call(drive)
+    assert run.status.value == "completed", run.error
+    report = client.get(f"/api/v1/research/{run_id}/report").json()
+    assert report["report_markdown"]
+    return run_id, report
+
+
+def test_academic_research_lifecycle_via_worker(platform):
+    run_id, report = _drive_pipeline(
+        platform, "academic_research", "Academic literature question?"
+    )
+    assert "## Bibliography" in report["report_markdown"]
+    citations = report.get("citations") or []
+    assert citations
+
+
+def test_autonomous_research_lifecycle_via_worker(platform):
+    run_id, report = _drive_pipeline(
+        platform, "autonomous_research", "Autonomous exploration topic?"
+    )
+    assert report["report_markdown"]
+    detail = platform[0].get(f"/api/v1/research/{run_id}").json()
+    assert detail["status"] == "completed"

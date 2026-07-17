@@ -95,10 +95,10 @@ Verified by `tests/test_isolation.py`.
 
 ## Residual gaps (known)
 
-Closed on ``feat/parity-hardening``: page-content summarization wired into the
-researcher ReAct loop, langchain-mcp connection headers for session auth, MCP
-server fields on New Research UI, SDK news subscription PATCH, and deep_research
-API+worker lifecycle coverage with fake adapters.
+Closed on ``feat/remaining-parity``: academic + autonomous API/worker E2E with
+fakes, session create/delete UX, dynamic provider settings keys, workspace
+metrics summary in Settings, and supervisor fakes that actually conduct
+research before completing.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory (not a
 dedicated dialog graph) — intentional product shape, not an unfinished stub.
