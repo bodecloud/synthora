@@ -24,6 +24,8 @@ export function NewResearch({
   const [plannerModel, setPlannerModel] = useState("");
   const [researcherModel, setResearcherModel] = useState("");
   const [writerModel, setWriterModel] = useState("");
+  const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpToken, setMcpToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +74,17 @@ export function NewResearch({
       if (researcherModel.trim())
         config.researcher_model = researcherModel.trim();
       if (writerModel.trim()) config.writer_model = writerModel.trim();
+      if (mcpUrl.trim()) {
+        const server: Record<string, string> = {
+          url: mcpUrl.trim(),
+          transport: "http",
+        };
+        if (mcpToken.trim()) server.token = mcpToken.trim();
+        config.extra = {
+          ...(config.extra as Record<string, unknown> | undefined),
+          mcp: { servers: [server] },
+        };
+      }
 
       const { run_id } = await api.startResearch(question.trim(), pipelineId, {
         session_id: sessionId || null,
@@ -204,6 +217,35 @@ export function NewResearch({
               value={writerModel}
               onChange={(e) => setWriterModel(e.target.value)}
               aria-label="writer model"
+            />
+          </label>
+        </div>
+      </details>
+
+      <details className="model-details">
+        <summary>Optional MCP tools</summary>
+        <p className="muted">
+          Load tools from an MCP HTTP server into researchers for this run.
+        </p>
+        <div className="config-grid">
+          <label className="field">
+            MCP server URL
+            <input
+              type="text"
+              placeholder="http://127.0.0.1:8000"
+              value={mcpUrl}
+              onChange={(e) => setMcpUrl(e.target.value)}
+              aria-label="mcp server url"
+            />
+          </label>
+          <label className="field">
+            Bearer token
+            <input
+              type="password"
+              placeholder="optional"
+              value={mcpToken}
+              onChange={(e) => setMcpToken(e.target.value)}
+              aria-label="mcp bearer token"
             />
           </label>
         </div>

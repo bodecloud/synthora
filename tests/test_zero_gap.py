@@ -144,3 +144,46 @@ async def test_nested_researcher_accepts_thread_id():
         },
     )
     assert result.get("findings") or result.get("compressed")
+
+
+@pytest.mark.asyncio
+async def test_researcher_summarizes_long_page_content():
+    from synthora.adapters.llm import FakeRoutingModel
+    from synthora.core.models import RunConfig, SearchResult
+    from synthora.orchestration.context import ResearchContext
+    from synthora.orchestration.nodes import _summarize_findings
+
+    class TrackingLLM(FakeRoutingModel):
+        def __init__(self):
+            self.summarize_calls = 0
+
+        async def complete(self, messages, *, temperature=0.3, max_tokens=None):
+            system = (messages[0].get("content") if messages else "") or ""
+            if "Summarize the web page" in system:
+                self.summarize_calls += 1
+                return "short summary"
+            return await super().complete(
+                messages, temperature=temperature, max_tokens=max_tokens
+            )
+
+    llm = TrackingLLM()
+    ctx = ResearchContext(
+        run_id="sum-test",
+        config=RunConfig(max_content_length=5000),
+        planner=llm,
+        researcher=llm,
+        compressor=llm,
+        writer=llm,
+        critic=llm,
+        engines=[],
+    )
+    long = SearchResult(
+        url="https://example.com/long",
+        title="Long",
+        snippet="snip",
+        content="Z" * 5000,
+        engine="fake",
+    )
+    out = await _summarize_findings(ctx, [long])
+    assert llm.summarize_calls == 1
+    assert out[0].content == "short summary"

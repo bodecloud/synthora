@@ -192,6 +192,16 @@ class SynthoraClient:
     def fetch_news_subscription(self, subscription_id: str) -> dict:
         return self._post(f"/api/v1/news/subscriptions/{subscription_id}/fetch", {})
 
+    def update_news_subscription(
+        self, subscription_id: str, *, query: Optional[str] = None, cadence: Optional[str] = None
+    ) -> dict:
+        body: dict[str, Any] = {}
+        if query is not None:
+            body["query"] = query
+        if cadence is not None:
+            body["cadence"] = cadence
+        return self._patch(f"/api/v1/news/subscriptions/{subscription_id}", body)
+
     def list_news_items(self, *, subscription_id: Optional[str] = None) -> list[dict]:
         path = "/api/v1/news/items"
         if subscription_id:
@@ -241,6 +251,11 @@ class SynthoraClient:
 
     def _put(self, path: str, body: dict) -> dict:
         resp = self._client.put(path, json=body, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def _patch(self, path: str, body: dict) -> dict:
+        resp = self._client.patch(path, json=body, headers=self._headers())
         resp.raise_for_status()
         return resp.json()
 
