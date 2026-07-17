@@ -51,6 +51,15 @@ async def main() -> None:
 
     db = Database(database_url)
     await db.ensure_schema()
+    try:
+        from synthora.adapters.document_index import warm_document_index_from_db
+
+        n = await warm_document_index_from_db(db)
+        logger.info("document index warmed with %d document(s)", n)
+    except Exception:
+        logger.exception(
+            "document index warm-up failed; collection RAG may be empty until lazy load"
+        )
     redis = aioredis.from_url(redis_url)
     queue = RedisJobQueue(redis)
     executor = RunExecutor(db, queue)

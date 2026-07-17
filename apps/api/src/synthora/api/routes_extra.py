@@ -22,6 +22,7 @@ from synthora.core.models import (
     NewsSubscription,
     ResearchRun,
     RunConfig,
+    RunStatus,
     Session,
 )
 from synthora.orchestration.registry import pipeline_registry
@@ -253,6 +254,29 @@ async def chat(
         session_id = session.id
 
     config = RunConfig(pipeline_id=pipeline_id, extra={"chat": True})
+    # Load prior completed reports in this session so the brief has chat memory.
+    if session_id:
+        prior = await RunRepositorySQL(db).list_runs(
+            workspace_id=identity["workspace_id"],
+            session_id=session_id,
+            limit=8,
+        )
+        history_bits: list[str] = []
+        for prev in reversed(prior):
+            if prev.status != RunStatus.COMPLETED:
+                continue
+            arts = await ArtifactRepository(db).list_for_run(prev.id)
+            report = next(
+                (a for a in arts if a.kind == ArtifactKind.REPORT_MARKDOWN), None
+            )
+            snippet = (report.content if report else prev.brief or "")[:1200]
+            if not snippet:
+                continue
+            history_bits.append(
+                f"User: {prev.question}\nAssistant (excerpt): {snippet}"
+            )
+        if history_bits:
+            config.extra["chat_history"] = "\n\n".join(history_bits[-5:])
     run = ResearchRun(
         question=body.message,
         pipeline_id=pipeline_id,

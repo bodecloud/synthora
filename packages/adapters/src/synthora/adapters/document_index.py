@@ -205,3 +205,83 @@ class DocumentIndex:
 
 
 document_index = DocumentIndex()
+
+
+async def warm_document_index_from_db(db: object) -> int:
+    """Load all persisted documents + chunks into the in-process index.
+
+    Shared by the API lifespan and the worker so ``collection`` RAG works
+    across processes (compose runs api and worker separately).
+    """
+    from synthora.persistence.repositories import DocumentRepository
+
+    document_index.clear()
+    repo = DocumentRepository(db)  # type: ignore[arg-type]
+    docs = await repo.list_all_documents()
+    for doc in docs:
+        document_index.upsert(
+            doc.workspace_id,
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "url": doc.url,
+                "content": doc.content,
+            },
+        )
+        chunks = await repo.list_chunks(
+            workspace_id=doc.workspace_id, document_id=doc.id
+        )
+        if chunks:
+            document_index.upsert_chunks(
+                doc.workspace_id,
+                doc.id,
+                [
+                    {
+                        "chunk_index": c.chunk_index,
+                        "text": c.text,
+                        "embedding": c.embedding,
+                    }
+                    for c in chunks
+                ],
+                title=doc.title,
+                url=doc.url or f"collection://{doc.id}",
+            )
+    return len(docs)
+
+
+async def ensure_workspace_index(workspace_id: str, db: object) -> None:
+    """Lazy-load one workspace into the index when the worker missed warm-up."""
+    if document_index.documents(workspace_id):
+        return
+    from synthora.persistence.repositories import DocumentRepository
+
+    repo = DocumentRepository(db)  # type: ignore[arg-type]
+    docs = await repo.list_documents(workspace_id)
+    for doc in docs:
+        document_index.upsert(
+            workspace_id,
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "url": doc.url,
+                "content": doc.content,
+            },
+        )
+        chunks = await repo.list_chunks(
+            workspace_id=workspace_id, document_id=doc.id
+        )
+        if chunks:
+            document_index.upsert_chunks(
+                workspace_id,
+                doc.id,
+                [
+                    {
+                        "chunk_index": c.chunk_index,
+                        "text": c.text,
+                        "embedding": c.embedding,
+                    }
+                    for c in chunks
+                ],
+                title=doc.title,
+                url=doc.url or f"collection://{doc.id}",
+            )

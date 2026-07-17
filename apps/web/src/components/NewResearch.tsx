@@ -34,7 +34,11 @@ export function NewResearch({
       .then((p) => {
         setProviders(p);
         if (p.search_engines.length && engines.length === 0) {
-          setEngines([p.search_engines[0]]);
+          const preferred = ["searxng", "collection", "duckduckgo", "ddg"];
+          const pick =
+            preferred.find((id) => p.search_engines.includes(id)) ||
+            p.search_engines[0];
+          setEngines([pick]);
         }
         if (p.search_strategies.length && !strategy) {
           setStrategy(p.search_strategies[0]);

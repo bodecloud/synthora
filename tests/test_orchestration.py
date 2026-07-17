@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from synthora.core.models import RunConfig
 from synthora.orchestration.context import parse_json_response
 from synthora.orchestration.graphs import (
@@ -183,3 +184,35 @@ async def test_deep_researcher_core_end_to_end():
     assert result["report"].startswith("# Final Report")
     assert result["citations"]
     assert result["citations"][0].index == 1
+
+
+@pytest.mark.asyncio
+async def test_write_research_brief_includes_parent_and_chat_context():
+    from synthora.orchestration.nodes import write_research_brief
+
+    captured: list[list[dict]] = []
+
+    class CaptureModel(FakeChatModel):
+        async def complete(self, messages, **kwargs):
+            captured.append(messages)
+            return "brief with prior context"
+
+    cfg = RunConfig(
+        pipeline_id="fast_research",
+        extra={
+            "parent_brief": "Earlier brief about quantum computing",
+            "parent_notes_snippet": "Notes about qubits",
+            "chat_history": "User: hello\nAssistant: hi there",
+        },
+    )
+    model = CaptureModel()
+    ctx = make_ctx(planner=model, config=cfg, engines=[])
+    result = await write_research_brief(
+        {"question": "What about error correction?"},
+        graph_config(ctx),
+    )
+    assert "brief" in result
+    user_content = captured[0][1]["content"]
+    assert "Earlier brief about quantum computing" in user_content
+    assert "Notes about qubits" in user_content
+    assert "hello" in user_content

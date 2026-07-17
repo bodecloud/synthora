@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 from synthora.orchestration.checkpoint import (
+    _normalize_postgres_url,
     get_checkpointer,
     reset_checkpointer,
-    _normalize_postgres_url,
 )
 
 

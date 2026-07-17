@@ -8,6 +8,7 @@ import {
   KnowledgeEdge,
   KnowledgeNode,
   RunDetail,
+  RunMetrics,
   TERMINAL_STATUSES,
 } from "../api";
 import { useRunEvents } from "../hooks/useRunEvents";
@@ -31,12 +32,13 @@ export function RunView({
     nodes: KnowledgeNode[];
     edges: KnowledgeEdge[];
   } | null>(null);
+  const [metrics, setMetrics] = useState<RunMetrics | null>(null);
   const [steer, setSteer] = useState("");
   const [clarifyAnswer, setClarifyAnswer] = useState("");
   const [followup, setFollowup] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { events, finished } = useRunEvents(runId);
+  const { events, finished, statusTick } = useRunEvents(runId);
 
   const refresh = useCallback(async () => {
     const detail = await api.getRun(runId);
@@ -61,14 +63,27 @@ export function RunView({
       } catch {
         /* knowledge map optional */
       }
+      try {
+        const metrics = await api.getRunMetrics(runId);
+        setMetrics(metrics);
+      } catch {
+        /* metrics optional */
+      }
     }
   }, [runId]);
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e)));
-  }, [refresh, finished]);
+  }, [refresh, finished, statusTick]);
 
   const awaitingInput = run?.status === "awaiting_input";
+  const clarifyQuestion =
+    [...events]
+      .reverse()
+      .find((e) => e.type === "interrupt")?.message ||
+    [...events]
+      .reverse()
+      .find((e) => e.type === "interrupt")?.payload?.question;
   const running =
     run != null &&
     !TERMINAL_STATUSES.includes(run.status) &&
@@ -103,7 +118,7 @@ export function RunView({
     }
   }
 
-  async function handleExport(format: "markdown" | "html") {
+  async function handleExport(format: "markdown" | "html" | "pdf") {
     setError(null);
     try {
       await downloadExport(runId, format);
@@ -165,6 +180,13 @@ export function RunView({
             Export HTML
           </button>
           <button
+            className="ghost"
+            type="button"
+            onClick={() => handleExport("pdf")}
+          >
+            Export PDF
+          </button>
+          <button
             className="ghost danger"
             type="button"
             disabled={busy}
@@ -174,11 +196,20 @@ export function RunView({
           </button>
         </div>
 
+        {metrics && (
+          <p className="muted">
+            Metrics: {metrics.llm_calls} LLM calls · {metrics.search_calls}{" "}
+            searches · {metrics.prompt_chars + metrics.completion_chars} chars
+          </p>
+        )}
+
         {awaitingInput && (
           <div className="clarify-box">
             <h3>Clarification needed</h3>
-            <p className="muted">
-              The pipeline is waiting for your answer before continuing.
+            <p>
+              {typeof clarifyQuestion === "string" && clarifyQuestion
+                ? clarifyQuestion
+                : "The pipeline is waiting for your answer before continuing."}
             </p>
             <div className="steer-row">
               <input
@@ -303,7 +334,7 @@ export function RunView({
       {kmap && (
         <section className="panel">
           <h2>Knowledge map</h2>
-          <KnowledgeMapView nodes={kmap.nodes} />
+          <KnowledgeMapView nodes={kmap.nodes} edges={kmap.edges} />
         </section>
       )}
     </>
