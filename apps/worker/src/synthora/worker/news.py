@@ -24,7 +24,9 @@ def _resolve_news_engines(engine_names: Optional[list[str]] = None):
         except KeyError:
             logger.debug("news engine %s not registered, skipping", name)
         except Exception:
-            logger.debug("news engine %s failed to construct, skipping", name, exc_info=True)
+            logger.debug(
+                "news engine %s failed to construct, skipping", name, exc_info=True
+            )
     return engines
 
 
@@ -35,14 +37,27 @@ async def fetch_subscription_news(
     engine_names: Optional[list[str]] = None,
     max_results: int = 8,
 ) -> list[NewsItem]:
-    """Pull search results for a subscription and persist them as news_items."""
+    """Pull search results for a subscription and persist them as news_items.
+
+    Does not advance ``last_run_at`` when no engines resolve or every engine
+    fails — so the poller will retry instead of treating total failure as success.
+    """
     engines = _resolve_news_engines(engine_names)
+    if not engines:
+        logger.error(
+            "no usable news engines for subscription %s; not advancing last_run_at",
+            sub.id,
+        )
+        return []
+
     seen_urls: set[str] = set()
     collected: list[NewsItem] = []
+    failures = 0
     for engine in engines:
         try:
             results = await engine.search(sub.query, max_results=max_results)
         except Exception:
+            failures += 1
             logger.exception(
                 "news fetch failed for subscription %s via %s",
                 sub.id,
@@ -66,6 +81,13 @@ async def fetch_subscription_news(
                 break
         if len(collected) >= max_results:
             break
+
+    if not collected and failures == len(engines):
+        logger.error(
+            "all news engines failed for subscription %s; not advancing last_run_at",
+            sub.id,
+        )
+        return []
 
     if collected:
         await repo.add_items(collected)

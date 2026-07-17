@@ -207,6 +207,27 @@ class NullAliasEngine(NullEngine):
     name = "null"
 
 
+class FakeSearchEngine:
+    """Deterministic offline search results for smoke / demo runs."""
+
+    name = "fake"
+
+    async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
+        return [
+            SearchResult(
+                url="https://example.com/smoke",
+                title=f"Smoke result for {query[:60]}",
+                snippet="Deterministic offline snippet for compose smoke tests.",
+                content=(
+                    "Deterministic offline content used when SYNTHORA runs with "
+                    "the fake search engine (no network required)."
+                ),
+                engine=self.name,
+                score=0.95,
+            )
+        ][:max_results]
+
+
 # ---------------------------------------------------------------------------
 # New engines
 # ---------------------------------------------------------------------------
@@ -953,7 +974,10 @@ class CollectionEngine:
             if indexed:
                 return indexed
         except Exception:
-            pass
+            logger.warning(
+                "collection RAG index lookup failed; falling back to substring match",
+                exc_info=True,
+            )
         q = query.lower().strip()
         if not q:
             return []
@@ -963,6 +987,10 @@ class CollectionEngine:
 
             docs = list(self.documents) + _idx.documents(workspace_id)
         except Exception:
+            logger.debug(
+                "collection document_index unavailable; using local documents only",
+                exc_info=True,
+            )
             docs = list(self.documents)
         seen: set[str] = set()
         for doc in docs:
@@ -1025,6 +1053,7 @@ search_engine_registry.register("arxiv", ArxivEngine)
 search_engine_registry.register("semantic_scholar", SemanticScholarEngine)
 search_engine_registry.register("none", NullEngine)
 search_engine_registry.register("null", NullAliasEngine)
+search_engine_registry.register("fake", FakeSearchEngine)
 
 # Web / general
 search_engine_registry.register("duckduckgo", DuckDuckGoEngine)

@@ -186,6 +186,63 @@ class AnthropicModel:
         return strip_think_tags(text)
 
 
+class FakeRoutingModel:
+    """Deterministic offline LLM for smoke tests and local demos.
+
+    Routes by system-prompt keywords so planner / researcher / writer roles
+    all work without an API key. Enable with ``fake:any-model``.
+    """
+
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        import json
+
+        system = (messages[0].get("content") if messages else "") or ""
+        if "Rewrite the research request" in system:
+            user = messages[-1].get("content", "") if len(messages) > 1 else ""
+            return f"Smoke research brief.\n\n{user[:500]}"
+        if "researcher with a search tool" in system:
+            user = messages[-1].get("content", "") if len(messages) > 1 else ""
+            findings_body = ""
+            if "Findings:\n" in user:
+                findings_body = user.split("Findings:\n", 1)[-1].strip()
+            if findings_body and findings_body != "(none yet)":
+                return json.dumps(
+                    {"action": "complete", "reflection": "enough for smoke"}
+                )
+            return json.dumps(
+                {"action": "search", "query": "smoke query", "reflection": "start"}
+            )
+        if "research supervisor" in system:
+            return json.dumps({"action": "research_complete", "reason": "done"})
+        if "Compress these research findings" in system:
+            return "compressed smoke findings [1]"
+        if "final research report" in system:
+            return (
+                "# Smoke Report\n\nDeterministic offline finding [1].\n\n## Sources"
+            )
+        if "Decompose the research topic" in system:
+            return "smoke sub-query"
+        if "rigorous reviewer" in system or "Critique" in system:
+            return "- Looks complete for a smoke test."
+        if "verify sources" in system.lower() or "Verify sources" in system:
+            return json.dumps({"verified": [1], "rejected": []})
+        if "perspective" in system.lower() or "expert persona" in system.lower():
+            return json.dumps(
+                {
+                    "perspectives": [
+                        {"name": "Engineer", "focus": "reliability", "expertise": "qa"}
+                    ]
+                }
+            )
+        return "ok"
+
+
 def strip_think_tags(text: str) -> str:
     """Remove <think>...</think> blocks emitted by reasoning models
     (mirrors Local Deep Research's think-tag wrapper)."""
@@ -223,6 +280,7 @@ llm_registry.register(
     lambda m: OpenAICompatibleModel(m, base_url=_env("OPENAI_BASE_URL")),
 )
 llm_registry.register("ollama", lambda m: OllamaModel(m))
+llm_registry.register("fake", lambda m: FakeRoutingModel())
 llm_registry.register(
     "anthropic",
     lambda m: AnthropicModel(m),

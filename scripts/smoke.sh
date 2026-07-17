@@ -62,4 +62,46 @@ if [[ "${SYNTHORA_CHECKPOINT_BACKEND:-postgres}" == "postgres" ]]; then
   grep -Ei 'checkpoint' /tmp/synthora-tables2.txt >/dev/null
 fi
 
+echo "==> live research run (fake LLM + fake search)"
+RUN_JSON=$(curl -fsS -X POST "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "question": "What is compose smoke testing?",
+    "pipeline_id": "fast_research",
+    "config": {
+      "planner_model": "fake:m",
+      "researcher_model": "fake:m",
+      "compressor_model": "fake:m",
+      "writer_model": "fake:m",
+      "critic_model": "fake:m",
+      "search_engines": ["fake"],
+      "search_strategy": "source_based",
+      "allow_clarification": false,
+      "max_react_tool_calls": 2
+    }
+  }')
+echo "$RUN_JSON"
+RUN_ID=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])' <<<"$RUN_JSON")
+STATUS=""
+for i in $(seq 1 90); do
+  STATUS=$(curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+  echo "run status: $STATUS"
+  if [[ "$STATUS" == "completed" || "$STATUS" == "failed" || "$STATUS" == "cancelled" ]]; then
+    break
+  fi
+  sleep 2
+done
+[[ "$STATUS" == "completed" ]] || {
+  echo "research run did not complete (status=$STATUS)"
+  curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}" || true
+  echo
+  echo "==> worker logs (tail)"
+  docker compose logs --tail=80 worker || true
+  echo "==> api logs (tail)"
+  docker compose logs --tail=40 api || true
+  exit 1
+}
+REPORT=$(curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/report")
+echo "$REPORT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("report_markdown"), d; print("report ok:", d["report_markdown"][:80])'
+
 echo "smoke test passed"

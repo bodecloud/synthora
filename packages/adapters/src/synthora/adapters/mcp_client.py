@@ -68,6 +68,7 @@ class MCPTool:
     _server_url: str = ""
     _transport: str = "http"
     _callable: Any = None
+    _headers: dict[str, str] = field(default_factory=dict)
 
     async def ainvoke(self, arguments: Optional[dict[str, Any]] = None) -> str:
         args = arguments or {}
@@ -76,7 +77,29 @@ class MCPTool:
             if hasattr(result, "__await__"):
                 result = await result
             return str(result)
-        return await _http_tools_call(self._server_url, self.name, args)
+        return await _http_tools_call(
+            self._server_url, self.name, args, headers=self._headers
+        )
+
+
+def _auth_headers(mcp_config: dict[str, Any], server: dict[str, Any]) -> dict[str, str]:
+    """Build Authorization headers for Synthora session-auth MCP self-calls."""
+    headers: dict[str, str] = {}
+    token = (
+        server.get("token")
+        or server.get("auth_token")
+        or mcp_config.get("token")
+        or os.environ.get("SYNTHORA_INTERNAL_TOKEN")
+        or os.environ.get("SYNTHORA_API_TOKEN")
+        or ""
+    )
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    extra = server.get("headers") or mcp_config.get("headers") or {}
+    if isinstance(extra, dict):
+        for key, value in extra.items():
+            headers[str(key)] = str(value)
+    return headers
 
 
 async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
@@ -96,6 +119,7 @@ async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
         logger.debug("langchain-mcp-adapters unavailable: %s", exc)
 
     tools: list[MCPTool] = []
+    failures: list[str] = []
     for server in servers:
         if not isinstance(server, dict):
             continue
@@ -106,11 +130,14 @@ async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
         try:
             url = validate_mcp_url(raw_url)
         except ValueError as exc:
+            failures.append(str(exc))
             logger.warning("MCP URL rejected: %s", exc)
             continue
+        headers = _auth_headers(mcp_config, server)
         try:
-            listed = await _http_tools_list(url)
+            listed = await _http_tools_list(url, headers=headers)
         except Exception as exc:  # noqa: BLE001
+            failures.append(f"{url}: {exc}")
             logger.warning("MCP list failed for %s: %s", url, exc)
             continue
         for item in listed:
@@ -121,11 +148,18 @@ async def load_mcp_tools(mcp_config: Optional[dict[str, Any]]) -> list[MCPTool]:
                 MCPTool(
                     name=name,
                     description=str(item.get("description") or ""),
-                    input_schema=dict(item.get("inputSchema") or item.get("input_schema") or {}),
+                    input_schema=dict(
+                        item.get("inputSchema") or item.get("input_schema") or {}
+                    ),
                     _server_url=url,
                     _transport=transport,
+                    _headers=headers,
                 )
             )
+    if not tools and failures:
+        raise RuntimeError(
+            "MCP tool loading failed for all servers: " + "; ".join(failures)
+        )
     return tools
 
 
@@ -171,11 +205,16 @@ async def _load_via_langchain(servers: list[dict]) -> list[MCPTool]:
     return out
 
 
-async def _http_tools_list(base_url: str) -> list[dict[str, Any]]:
+async def _http_tools_list(
+    base_url: str, *, headers: Optional[dict[str, str]] = None
+) -> list[dict[str, Any]]:
     """Call Synthora-style REST or JSON-RPC tools/list."""
+    hdrs = dict(headers or {})
     async with httpx.AsyncClient(timeout=20.0) as client:
         # Synthora REST surface
-        resp = await client.post(f"{base_url}/api/v1/mcp/tools/list", json={})
+        resp = await client.post(
+            f"{base_url}/api/v1/mcp/tools/list", json={}, headers=hdrs
+        )
         if resp.status_code < 400:
             data = resp.json()
             tools = data.get("tools") if isinstance(data, dict) else None
@@ -190,6 +229,7 @@ async def _http_tools_list(base_url: str) -> list[dict[str, Any]]:
                 "method": "tools/list",
                 "params": {},
             },
+            headers=hdrs,
         )
         if resp.status_code >= 400:
             resp.raise_for_status()
@@ -203,12 +243,18 @@ async def _http_tools_list(base_url: str) -> list[dict[str, Any]]:
 
 
 async def _http_tools_call(
-    base_url: str, name: str, arguments: dict[str, Any]
+    base_url: str,
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    headers: Optional[dict[str, str]] = None,
 ) -> str:
+    hdrs = dict(headers or {})
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             f"{base_url}/api/v1/mcp/tools/call",
             json={"name": name, "arguments": arguments},
+            headers=hdrs,
         )
         if resp.status_code < 400:
             data = resp.json()
@@ -226,6 +272,7 @@ async def _http_tools_call(
                 "method": "tools/call",
                 "params": {"name": name, "arguments": arguments},
             },
+            headers=hdrs,
         )
         resp.raise_for_status()
         data = resp.json()

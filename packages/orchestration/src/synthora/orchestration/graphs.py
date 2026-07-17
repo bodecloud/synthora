@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
-from synthora.orchestration.checkpoint import get_checkpointer
 from synthora.orchestration.nodes import (
     clarify_interrupt,
     clarify_with_user,
@@ -26,7 +25,12 @@ from synthora.orchestration.state import (
 
 
 def build_researcher_graph():
-    """Isolated researcher: ReAct search loop -> compression."""
+    """Isolated researcher: ReAct search loop -> compression.
+
+    Compiled without a durable checkpointer: interrupts/resume live only on
+    the parent pipeline. Sharing PostgresSaver with the parent has caused
+    nested-run failures under a single connection.
+    """
     g = StateGraph(ResearcherState)
     g.add_node("researcher_step", researcher_step)
     g.add_node("compress", compress_research)
@@ -37,11 +41,14 @@ def build_researcher_graph():
         {"researcher_step": "researcher_step", "compress": "compress"},
     )
     g.add_edge("compress", END)
-    return g.compile(checkpointer=get_checkpointer())
+    return g.compile()
 
 
 def build_supervisor_graph():
-    """Supervisor loop: plan -> delegate (parallel researchers) -> iterate."""
+    """Supervisor loop: plan -> delegate (parallel researchers) -> iterate.
+
+    No durable checkpointer — see ``build_researcher_graph``.
+    """
     g = StateGraph(SupervisorState)
     g.add_node("supervisor", supervisor)
     g.add_node("supervisor_tools", supervisor_tools)
@@ -56,7 +63,7 @@ def build_supervisor_graph():
         },
     )
     g.add_edge("supervisor_tools", "supervisor")
-    return g.compile(checkpointer=get_checkpointer())
+    return g.compile()
 
 
 async def run_supervisor_phase(state: AgentState, config: RunnableConfig) -> dict:
