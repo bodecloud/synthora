@@ -1,0 +1,1 @@
+"""Synthora FastAPI gateway."""

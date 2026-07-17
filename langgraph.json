@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    "./packages/core",
+    "./packages/adapters",
+    "./packages/intelligence",
+    "./packages/orchestration"
+  ],
+  "graphs": {
+    "fast_research": "./packages/orchestration/src/synthora/orchestration/studio.py:fast_research_graph",
+    "deep_research": "./packages/orchestration/src/synthora/orchestration/studio.py:deep_research_graph",
+    "academic_research": "./packages/orchestration/src/synthora/orchestration/studio.py:academic_research_graph",
+    "autonomous_research": "./packages/orchestration/src/synthora/orchestration/studio.py:autonomous_research_graph"
+  },
+  "env": ".env"
+}

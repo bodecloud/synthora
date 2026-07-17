@@ -1,0 +1,26 @@
+[project]
+name = "synthora-worker"
+version = "0.1.0"
+description = "Synthora background worker: consumes the research queue and executes LangGraph pipelines"
+requires-python = ">=3.11"
+dependencies = [
+    "synthora-core",
+    "synthora-persistence",
+    "synthora-orchestration",
+    "synthora-adapters",
+    "redis>=5.0",
+    "pydantic-settings>=2.4",
+]
+
+[tool.uv.sources]
+synthora-core = { workspace = true }
+synthora-persistence = { workspace = true }
+synthora-orchestration = { workspace = true }
+synthora-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthora"]

@@ -1,0 +1,21 @@
+[project]
+name = "synthora-intelligence"
+version = "0.1.0"
+description = "Synthora knowledge layer: perspectives, discourse, knowledge maps, outlines, cited writing"
+requires-python = ">=3.11"
+dependencies = [
+    "synthora-core",
+    "synthora-adapters",
+    "httpx>=0.27",
+]
+
+[tool.uv.sources]
+synthora-core = { workspace = true }
+synthora-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthora"]

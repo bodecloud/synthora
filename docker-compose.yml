@@ -1,0 +1,173 @@
+# Synthora self-host stack (R-LDR-6 / R-LDR-7)
+# Services: api, worker, web, postgres, redis, searxng (+ optional ollama profile)
+
+name: synthora
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-synthora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synthora}
+      POSTGRES_DB: ${POSTGRES_DB:-synthora}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-synthora} -d $${POSTGRES_DB:-synthora} || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  redis:
+    <<: *restart
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  searxng:
+    <<: *restart
+    image: searxng/searxng:latest
+    environment:
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://localhost:8080/}
+    configs:
+      - source: searxng-settings
+        target: /etc/searxng/settings.yml
+    ports:
+      - "${SEARXNG_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  api:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment: &synthora-env
+      SYNTHORA_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-synthora}:${POSTGRES_PASSWORD:-synthora}@postgres:5432/${POSTGRES_DB:-synthora}
+      SYNTHORA_REDIS_URL: redis://redis:6379/0
+      SYNTHORA_AUTH_MODE: ${SYNTHORA_AUTH_MODE:-none}
+      SYNTHORA_SECRET_KEY: ${SYNTHORA_SECRET_KEY:-change-me}
+      # Use postgres checkpointer for multi-worker / restart-safe resume.
+      SYNTHORA_CHECKPOINT_BACKEND: ${SYNTHORA_CHECKPOINT_BACKEND:-postgres}
+      SYNTHORA_CHECKPOINT_URL: ${SYNTHORA_CHECKPOINT_URL:-postgresql://${POSTGRES_USER:-synthora}:${POSTGRES_PASSWORD:-synthora}@postgres:5432/${POSTGRES_DB:-synthora}}
+      SYNTHORA_MCP_ALLOWLIST: ${SYNTHORA_MCP_ALLOWLIST:-}
+      SYNTHORA_NEWS_POLL: ${SYNTHORA_NEWS_POLL:-1}
+      SYNTHORA_NEWS_POLL_INTERVAL: ${SYNTHORA_NEWS_POLL_INTERVAL:-300}
+      SYNTHORA_USE_ALEMBIC: ${SYNTHORA_USE_ALEMBIC:-1}
+      SEARXNG_URL: http://searxng:8080
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+    ports:
+      - "${SYNTHORA_API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  worker:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment: *synthora-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import pathlib,sys,time; p=pathlib.Path(\"/tmp/synthora-worker-heartbeat\"); sys.exit(0 if p.exists() and time.time()-p.stat().st_mtime < 120 else 1)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  web:
+    <<: *restart
+    build:
+      context: ./apps/web
+      dockerfile: ../../docker/web.Dockerfile
+    environment:
+      SYNTHORA_API_URL: http://api:8000
+    ports:
+      - "${SYNTHORA_WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+  ollama:
+    <<: *restart
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      deunhealth.restart.on.unhealthy: "true"
+
+configs:
+  searxng-settings:
+    content: |
+      use_default_settings: true
+      server:
+        secret_key: "$${SEARXNG_SECRET:-synthora-searxng-secret}"
+        limiter: false
+      search:
+        formats:
+          - html
+          - json
+
+volumes:
+  postgres-data:
+  redis-data:
+  ollama-data:

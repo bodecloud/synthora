@@ -1,0 +1,13 @@
+[project]
+name = "synthora-core"
+version = "0.1.0"
+description = "Synthora domain models, ports, and events"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.7"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthora"]

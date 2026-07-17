@@ -1,0 +1,32 @@
+[project]
+name = "synthora-api"
+version = "0.1.0"
+description = "Synthora FastAPI gateway: REST API, WebSocket progress, optional auth"
+requires-python = ">=3.11"
+dependencies = [
+    "synthora-core",
+    "synthora-persistence",
+    "synthora-orchestration",
+    "synthora-adapters",
+    "synthora-worker",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "redis>=5.0",
+    "pyjwt>=2.9",
+    "pydantic-settings>=2.4",
+    "fpdf2>=2.8",
+]
+
+[tool.uv.sources]
+synthora-core = { workspace = true }
+synthora-persistence = { workspace = true }
+synthora-orchestration = { workspace = true }
+synthora-adapters = { workspace = true }
+synthora-worker = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthora"]
