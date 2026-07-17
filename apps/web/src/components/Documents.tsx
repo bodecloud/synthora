@@ -5,6 +5,7 @@ export function Documents() {
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Array<Record<string, unknown>>>([]);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +30,22 @@ export function Documents() {
       await api.createDocument(title.trim(), content.trim());
       setTitle("");
       setContent("");
+      load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadFile() {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.uploadDocument(file, title.trim() || undefined);
+      setFile(null);
+      setTitle("");
       load();
     } catch (e) {
       setError(String(e));
@@ -65,8 +82,9 @@ export function Documents() {
     <section className="panel">
       <h2>Document library</h2>
       <p className="muted">
-        Upload texts for the <code>collection</code> search engine (workspace
-        RAG).
+        Paste text or upload <code>.txt</code> / <code>.md</code> /{" "}
+        <code>.pdf</code> / <code>.docx</code> for the <code>collection</code>{" "}
+        search engine (workspace RAG).
       </p>
       {error && <p className="error-text">{error}</p>}
 
@@ -94,7 +112,24 @@ export function Documents() {
           disabled={busy || !title.trim() || !content.trim()}
           onClick={upload}
         >
-          {busy ? "Saving…" : "Upload document"}
+          {busy ? "Saving…" : "Save pasted text"}
+        </button>
+        <label>
+          Or upload a file
+          <input
+            type="file"
+            accept=".txt,.md,.markdown,.csv,.html,.htm,.pdf,.docx"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            aria-label="document file"
+          />
+        </label>
+        <button
+          className="primary"
+          type="button"
+          disabled={busy || !file}
+          onClick={uploadFile}
+        >
+          {busy ? "Uploading…" : "Upload file"}
         </button>
       </div>
 

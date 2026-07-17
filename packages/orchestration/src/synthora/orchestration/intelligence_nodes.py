@@ -184,9 +184,9 @@ async def section_write(state: AgentState, config: RunnableConfig) -> dict:
     # After citation_verify, drop rejected sources from the writing path.
     if (state.get("metadata") or {}).get("citations_verified"):
         citations = [c for c in citations if c.verified]
-    from synthora.intelligence.embeddings import default_hash_embeddings
+    from synthora.intelligence.embeddings import resolve_research_embeddings
 
-    writer = SectionWriter(ctx.writer, embeddings=default_hash_embeddings())
+    writer = SectionWriter(ctx.writer, embeddings=resolve_research_embeddings())
     notes = "\n\n".join(state.get("notes", []))
     brief = state.get("brief", state["question"])
     sections: list[str] = []

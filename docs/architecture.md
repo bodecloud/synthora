@@ -20,9 +20,18 @@ concrete provider:
 - `llm_registry` — `provider:model` strings (`openai:gpt-4o`, `ollama:llama3.1`).
   OpenAI-compatible endpoints cover OpenRouter/vLLM/LM Studio/llama.cpp.
   Think-tags from reasoning models are stripped.
-- `search_engine_registry` — `searxng`, `tavily`, `arxiv`, `semantic_scholar`, `none`.
-- `strategy_registry` — `source_based` (decompose → fan out → dedupe → rank),
-  `focused_iteration` (search → reflect on gaps → refine → search).
+- `search_engine_registry` — full catalog including `searxng`, `tavily`,
+  `arxiv`, `semantic_scholar`, `duckduckgo`/`ddg`, `brave`, `serper`,
+  `google_pse`, `bing`, `exa`, `guardian`, `wikipedia`, `pubmed`, `openalex`,
+  `stackexchange`, `github`, `elasticsearch`, `wayback`, `collection`,
+  `serpapi`, `mojeek`, `gutenberg`, `none`/`null`, plus news-oriented engines.
+  Key-required engines resolve credentials via workspace provider settings
+  (`_env` / `resolve_credential`) and are filtered as unusable when missing.
+- `strategy_registry` — `source_based`, `focused_iteration`, and additional
+  registered strategies (see `/api/v1/providers` at runtime).
+- `embedding_registry` / `resolve_default_embeddings` — OpenAI → Ollama →
+  deterministic hash; used by document RAG and research-loop similarity.
+- `page_fetch` — SSRF-safe HTTP(S) page text extraction for thin snippets.
 
 ### Intelligence (`packages/intelligence`)
 

@@ -440,3 +440,14 @@ def test_html_to_text_strips_scripts():
     text = html_to_text(html)
     assert "Hello" in text and "world" in text
     assert "evil" not in text
+
+
+def test_resolve_default_embeddings_prefers_openai(monkeypatch):
+    from synthora.adapters.embeddings import (
+        OpenAIEmbeddings,
+        resolve_default_embeddings,
+    )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    emb = resolve_default_embeddings()
+    assert isinstance(emb, OpenAIEmbeddings)

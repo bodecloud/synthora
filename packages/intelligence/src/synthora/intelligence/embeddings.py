@@ -66,8 +66,8 @@ def _sync_encode(embedder: object) -> Callable[[str], list[float]]:
 
 
 def make_embedding_similarity(embedder: Optional[object] = None) -> SimilarityFn:
-    """Build a sync cosine ``SimilarityFn`` from a hash (or sync) embedder."""
-    emb = embedder if embedder is not None else default_hash_embeddings()
+    """Build a sync cosine ``SimilarityFn`` from the preferred embedder."""
+    emb = embedder if embedder is not None else resolve_research_embeddings()
     encode = _sync_encode(emb)
 
     def similarity(a: str, b: str) -> float:
@@ -81,3 +81,13 @@ def default_hash_embeddings() -> object:
     if _AdapterHashEmbeddings is not None:
         return _AdapterHashEmbeddings()
     return HashEmbeddings()
+
+
+def resolve_research_embeddings() -> object:
+    """OpenAI → Ollama → hash for research-loop similarity and section writing."""
+    try:
+        from synthora.adapters.embeddings import resolve_default_embeddings
+
+        return resolve_default_embeddings()
+    except Exception:
+        return default_hash_embeddings()
