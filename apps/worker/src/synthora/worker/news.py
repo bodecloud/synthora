@@ -12,7 +12,7 @@ from synthora.persistence import NewsRepository
 logger = logging.getLogger("synthora.worker.news")
 
 # Prefer Fake-safe / offline engines first; network engines are best-effort.
-DEFAULT_NEWS_ENGINES = ("none", "duckduckgo", "ddg", "null", "searxng")
+DEFAULT_NEWS_ENGINES = ("searxng", "duckduckgo", "ddg")
 
 
 def _resolve_news_engines(engine_names: Optional[list[str]] = None):

@@ -8,6 +8,7 @@ can register fakes without network access. Network failures raise httpx errors
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Callable, Optional
@@ -17,6 +18,8 @@ import httpx
 from defusedxml import ElementTree
 from synthora.core.models import SearchResult
 from synthora.core.ports import SearchEngine
+
+logger = logging.getLogger("synthora.adapters.search")
 
 EngineFactory = Callable[[], SearchEngine]
 
@@ -78,6 +81,7 @@ class TavilyEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
@@ -282,6 +286,7 @@ class BraveEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
@@ -533,6 +538,7 @@ class SerperEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
@@ -613,6 +619,7 @@ class GooglePseEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key or not self.cx:
+            logger.warning("%s: API key/cx not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
@@ -815,6 +822,7 @@ class ExaEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
@@ -855,6 +863,7 @@ class GuardianEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
@@ -918,11 +927,29 @@ class CollectionEngine:
         workspace_id = get_workspace_id()
         # Prefer the shared RAG index for *this* workspace only (no cross-tenant scan).
         try:
-            from synthora.adapters.document_index import document_index
+            from synthora.adapters.document_index import (
+                document_index,
+                ensure_workspace_index,
+            )
 
             indexed = document_index.search(
                 workspace_id, query, max_results=max_results
             )
+            if not indexed and not document_index.documents(workspace_id):
+                db_url = os.environ.get("SYNTHORA_DATABASE_URL") or os.environ.get(
+                    "DATABASE_URL", ""
+                )
+                if db_url:
+                    from synthora.persistence.database import Database
+
+                    db = Database(db_url)
+                    try:
+                        await ensure_workspace_index(workspace_id, db)
+                    finally:
+                        await db.dispose()
+                    indexed = document_index.search(
+                        workspace_id, query, max_results=max_results
+                    )
             if indexed:
                 return indexed
         except Exception:
@@ -1164,6 +1191,7 @@ class SerpApiEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
@@ -1196,6 +1224,7 @@ class MojeekEngine:
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
         if not self.api_key:
+            logger.warning("%s: API key not configured; returning no results", self.name)
             return []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -13,7 +14,6 @@ from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from synthora.adapters import llm_registry, search_engine_registry, strategy_registry
-from synthora.adapters.document_index import document_index
 from synthora.api.auth import (
     current_identity,
     hash_password,
@@ -36,7 +36,6 @@ from synthora.persistence import (
     ArtifactRepository,
     CitationRepository,
     DiscourseRepository,
-    DocumentRepository,
     EventRepository,
     KnowledgeRepository,
     RunRepositorySQL,
@@ -48,43 +47,10 @@ from synthora.persistence.database import Database
 from synthora.worker.queue import RedisJobQueue, events_channel
 
 
-async def _warm_document_index(db: Database) -> None:
-    """Load persisted documents into the in-process collection index."""
-    document_index.clear()
-    repo = DocumentRepository(db)
-    docs = await repo.list_all_documents()
-    for doc in docs:
-        document_index.upsert(
-            doc.workspace_id,
-            {
-                "id": doc.id,
-                "title": doc.title,
-                "url": doc.url,
-                "content": doc.content,
-            },
-        )
-        chunks = await repo.list_chunks(
-            workspace_id=doc.workspace_id, document_id=doc.id
-        )
-        if chunks:
-            document_index.upsert_chunks(
-                doc.workspace_id,
-                doc.id,
-                [
-                    {
-                        "chunk_index": c.chunk_index,
-                        "text": c.text,
-                        "embedding": c.embedding,
-                    }
-                    for c in chunks
-                ],
-                title=doc.title,
-                url=doc.url or f"collection://{doc.id}",
-            )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from synthora.adapters.document_index import warm_document_index_from_db
+
     settings.assert_secure_for_auth()
     db = Database(settings.database_url)
     await db.ensure_schema()
@@ -94,9 +60,13 @@ async def lifespan(app: FastAPI):
     app.state.queue = RedisJobQueue(redis)
     await WorkspaceRepository(db).ensure_default()
     try:
-        await _warm_document_index(db)
+        n = await warm_document_index_from_db(db)
+        logger = logging.getLogger("synthora.api")
+        logger.info("document index warmed with %d document(s)", n)
     except Exception:
-        pass
+        logging.getLogger("synthora.api").exception(
+            "document index warm-up failed; collection RAG may be empty"
+        )
     yield
     await redis.aclose()
     await db.dispose()
@@ -423,6 +393,9 @@ async def resume_research(
             status_code=409,
             detail=f"run is {run.status.value}, expected awaiting_input",
         )
+    run.status = RunStatus.QUEUED
+    run.error = None
+    await RunRepositorySQL(get_db()).update(run)
     await get_queue().enqueue(
         run_id, {"pipeline_id": run.pipeline_id, "resume_value": body.answer}
     )
@@ -629,17 +602,34 @@ async def events_ws(
         await pubsub.subscribe(events_channel(run_id))
         try:
             while True:
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                # Bound Redis polls so a closed client / stuck fakeredis cannot
+                # pin the handler forever.
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(
+                            ignore_subscribe_messages=True, timeout=0.5
+                        ),
+                        timeout=1.5,
+                    )
+                except asyncio.TimeoutError:
+                    message = None
                 if message is None:
-                    await asyncio.sleep(0)
+                    # Soft disconnect probe: aborted sends mean the client left.
+                    try:
+                        await asyncio.wait_for(websocket.receive(), timeout=0.01)
+                    except asyncio.TimeoutError:
+                        pass
+                    except WebSocketDisconnect:
+                        break
                     continue
                 data = message["data"]
                 if isinstance(data, bytes):
                     data = data.decode()
                 payload = json.loads(data)
-                await websocket.send_json(payload)
+                try:
+                    await websocket.send_json(payload)
+                except (WebSocketDisconnect, RuntimeError):
+                    break
                 if payload.get("type") in ("done", "error"):
                     break
         finally:

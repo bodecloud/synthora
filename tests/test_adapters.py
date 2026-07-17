@@ -63,7 +63,6 @@ def test_llm_registry_lists_full_parity_providers():
 @pytest.mark.parametrize(
     "provider,env_key,default_base",
     [
-        ("anthropic", "ANTHROPIC_API_KEY", "https://api.anthropic.com/v1"),
         ("openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1"),
         ("deepseek", "DEEPSEEK_API_KEY", "https://api.deepseek.com"),
         ("xai", "XAI_API_KEY", "https://api.x.ai/v1"),
@@ -79,6 +78,17 @@ def test_llm_provider_aliases_are_openai_compatible(
     assert isinstance(model, OpenAICompatibleModel)
     assert model.model == "test-model"
     assert model.base_url.rstrip("/") == default_base.rstrip("/")
+    assert model.api_key == "test-key"
+
+
+def test_anthropic_uses_native_messages_client(monkeypatch):
+    from synthora.adapters.llm import AnthropicModel
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    model = llm_registry.resolve("anthropic:claude-test")
+    assert isinstance(model, AnthropicModel)
+    assert model.model == "claude-test"
+    assert model.base_url.rstrip("/") == "https://api.anthropic.com"
     assert model.api_key == "test-key"
 
 

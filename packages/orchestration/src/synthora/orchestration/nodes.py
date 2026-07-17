@@ -73,6 +73,16 @@ async def write_research_brief(state: AgentState, config: RunnableConfig) -> dic
         parts.append(f"Clarification: {state['clarification']}")
     if ctx.steering:
         parts.append("User steering: " + "; ".join(ctx.steering))
+    extra = ctx.config.extra or {}
+    parent_brief = str(extra.get("parent_brief") or "").strip()
+    parent_notes = str(extra.get("parent_notes_snippet") or "").strip()
+    chat_history = str(extra.get("chat_history") or "").strip()
+    if parent_brief:
+        parts.append(f"Prior research brief (follow-up context):\n{parent_brief}")
+    if parent_notes:
+        parts.append(f"Prior research notes (excerpt):\n{parent_notes}")
+    if chat_history:
+        parts.append(f"Prior conversation in this session:\n{chat_history}")
     brief = await ctx.planner.complete(
         [
             {
@@ -80,7 +90,9 @@ async def write_research_brief(state: AgentState, config: RunnableConfig) -> dic
                 "content": (
                     "Rewrite the research request as a detailed, self-contained "
                     "research brief. State the core question, scope boundaries, "
-                    "and what a complete answer must cover. Reply with the brief only."
+                    "and what a complete answer must cover. When prior research or "
+                    "chat context is provided, build on it rather than repeating "
+                    "it. Reply with the brief only."
                 ),
             },
             {"role": "user", "content": "\n".join(parts)},

@@ -87,6 +87,8 @@ async def discourse_pass(state: AgentState, config: RunnableConfig) -> dict:
             manager.inject_user_turn(f"[warm-start] {q}")
     if extra.get("pure_rag"):
         await manager.pure_rag_turn(topic)
+    if extra.get("simulated_user"):
+        await manager.simulated_user_turn(topic)
 
     guided = (state.get("metadata") or {}).get("guided_questions") or {}
     for msg in ctx.steering:

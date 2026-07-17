@@ -41,6 +41,9 @@ def dedupe_results(results: list[SearchResult]) -> list[SearchResult]:
 async def _fan_out(
     queries: list[str], engines: list[SearchEngine], per_query: int
 ) -> list[SearchResult]:
+    import logging
+
+    log = logging.getLogger("synthora.adapters.strategies")
     tasks = [
         engine.search(q, max_results=per_query) for q in queries for engine in engines
     ]
@@ -48,8 +51,16 @@ async def _fan_out(
     results: list[SearchResult] = []
     for batch in batches:
         if isinstance(batch, BaseException):
+            log.warning("search engine call failed: %s", batch)
             continue  # one engine failing must not sink the strategy
         results.extend(batch)
+    if engines and queries and not results:
+        names = ", ".join(getattr(e, "name", type(e).__name__) for e in engines)
+        log.warning(
+            "all search engines returned empty results (engines=%s queries=%s)",
+            names,
+            queries,
+        )
     return results
 
 

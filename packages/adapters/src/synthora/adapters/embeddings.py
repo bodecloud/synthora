@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import os
 import struct
 from typing import Callable, Optional
 

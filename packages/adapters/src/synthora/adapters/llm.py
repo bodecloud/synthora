@@ -108,6 +108,84 @@ class OllamaModel:
         return strip_think_tags(data.get("message", {}).get("content", ""))
 
 
+class AnthropicModel:
+    """Native Anthropic Messages API client (not OpenAI-compatible)."""
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        timeout: float = 120.0,
+    ) -> None:
+        self.model = model
+        self.api_key = api_key or _env("ANTHROPIC_API_KEY")
+        self.base_url = (
+            base_url
+            or _env("ANTHROPIC_BASE_URL", default="https://api.anthropic.com")
+        ).rstrip("/")
+        # Allow accidental ``.../v1`` env values; we append ``/v1/messages``.
+        if self.base_url.endswith("/v1"):
+            self.base_url = self.base_url[: -len("/v1")]
+        self.timeout = timeout
+
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        if not self.api_key:
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY is required for anthropic:* models"
+            )
+        system_parts: list[str] = []
+        converted: list[dict[str, str]] = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                system_parts.append(content)
+            else:
+                converted.append(
+                    {
+                        "role": "assistant" if role == "assistant" else "user",
+                        "content": content,
+                    }
+                )
+        if not converted:
+            converted = [{"role": "user", "content": "\n".join(system_parts) or "."}]
+            system_parts = []
+        payload: dict = {
+            "model": self.model,
+            "messages": converted,
+            "max_tokens": max_tokens or 4096,
+            "temperature": temperature,
+        }
+        if system_parts:
+            payload["system"] = "\n\n".join(system_parts)
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(
+                f"{self.base_url}/v1/messages", json=payload, headers=headers
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        blocks = data.get("content") or []
+        text = "".join(
+            block.get("text", "")
+            for block in blocks
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+        return strip_think_tags(text)
+
+
 def strip_think_tags(text: str) -> str:
     """Remove <think>...</think> blocks emitted by reasoning models
     (mirrors Local Deep Research's think-tag wrapper)."""
@@ -147,13 +225,7 @@ llm_registry.register(
 llm_registry.register("ollama", lambda m: OllamaModel(m))
 llm_registry.register(
     "anthropic",
-    lambda m: OpenAICompatibleModel(
-        m,
-        api_key=_env("ANTHROPIC_API_KEY"),
-        base_url=_env(
-            "ANTHROPIC_BASE_URL", default="https://api.anthropic.com/v1"
-        ),
-    ),
+    lambda m: AnthropicModel(m),
 )
 llm_registry.register(
     "google",

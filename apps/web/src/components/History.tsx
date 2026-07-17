@@ -4,6 +4,7 @@ import { api, RunSummary } from "../api";
 export function History({ onOpen }: { onOpen: (runId: string) => void }) {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -27,9 +28,35 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     }
   }
 
+  async function handleClearAll() {
+    if (!window.confirm("Delete ALL research runs in this workspace?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.clearHistory();
+      setRuns([]);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="panel">
-      <h2>Research history</h2>
+      <div className="action-row">
+        <h2 style={{ margin: 0, flex: 1 }}>Research history</h2>
+        {runs.length > 0 && (
+          <button
+            type="button"
+            className="ghost danger"
+            disabled={busy}
+            onClick={handleClearAll}
+          >
+            Clear all
+          </button>
+        )}
+      </div>
       {error && <p className="error-text">{error}</p>}
       {runs.length === 0 && !error && <p>No research yet.</p>}
       {runs.length > 0 && (

@@ -97,6 +97,14 @@ export interface NewsItem {
   created_at: string;
 }
 
+export interface DocumentSummary {
+  id: string;
+  title: string;
+  url: string;
+  workspace_id: string;
+  created_at: string;
+}
+
 export interface RunMetrics {
   run_id: string;
   llm_calls: number;
@@ -175,7 +183,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function exportUrl(
   runId: string,
-  format: "markdown" | "html" = "markdown",
+  format: "markdown" | "html" | "pdf" = "markdown",
 ): string {
   return `/api/v1/research/${runId}/export?format=${format}`;
 }
@@ -183,7 +191,7 @@ export function exportUrl(
 /** Fetch an export file with auth and trigger a browser download. */
 export async function downloadExport(
   runId: string,
-  format: "markdown" | "html",
+  format: "markdown" | "html" | "pdf",
 ): Promise<void> {
   const headers: Record<string, string> = {};
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
@@ -193,7 +201,7 @@ export async function downloadExport(
     throw new Error(`${resp.status}: ${body}`);
   }
   const blob = await resp.blob();
-  const ext = format === "html" ? "html" : "md";
+  const ext = format === "html" ? "html" : format === "pdf" ? "pdf" : "md";
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = objectUrl;
@@ -385,6 +393,34 @@ export const api = {
       (d) => d.items,
     );
   },
+
+  clearHistory: () =>
+    request<{ deleted: number }>("/api/v1/research/clear", {
+      method: "POST",
+      body: "{}",
+    }),
+
+  listDocuments: () =>
+    request<{ documents: DocumentSummary[] }>("/api/v1/documents").then(
+      (d) => d.documents,
+    ),
+  createDocument: (title: string, content: string, url?: string) =>
+    request<DocumentSummary>("/api/v1/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content, url: url || null }),
+    }),
+  deleteDocument: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`/api/v1/documents/${id}`, {
+      method: "DELETE",
+    }),
+  searchDocuments: (query: string) =>
+    request<{ results: Array<Record<string, unknown>> }>(
+      "/api/v1/documents/search",
+      {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      },
+    ),
 };
 
 export function eventsSocketUrl(runId: string): string {

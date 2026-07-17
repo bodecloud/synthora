@@ -5,6 +5,7 @@ import {
   loadStoredToken,
 } from "./api";
 import { Chat } from "./components/Chat";
+import { Documents } from "./components/Documents";
 import { History } from "./components/History";
 import { Login } from "./components/Login";
 import { News } from "./components/News";
@@ -19,6 +20,7 @@ type View =
   | { name: "login" }
   | { name: "news" }
   | { name: "chat" }
+  | { name: "documents" }
   | { name: "run"; runId: string };
 
 export function App() {
@@ -61,6 +63,12 @@ export function App() {
             News
           </button>
           <button
+            className={view.name === "documents" ? "active" : ""}
+            onClick={() => setView({ name: "documents" })}
+          >
+            Documents
+          </button>
+          <button
             className={view.name === "history" ? "active" : ""}
             onClick={() => setView({ name: "history" })}
           >
@@ -94,6 +102,7 @@ export function App() {
           <Chat onStarted={(runId) => setView({ name: "run", runId })} />
         )}
         {view.name === "news" && <News />}
+        {view.name === "documents" && <Documents />}
         {view.name === "history" && (
           <History onOpen={(runId) => setView({ name: "run", runId })} />
         )}

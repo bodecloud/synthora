@@ -93,11 +93,18 @@ Verified by `tests/test_isolation.py`.
 | `academic_research` | ✅ |
 | `autonomous_research` | ✅ |
 
-## Residual gaps (known, deliberate)
+## Residual gaps (known)
 
-None for the in-scope product surface. Compose smoke
-(`scripts/smoke.sh`) and Playwright e2e (`apps/web` `npm run test:e2e`)
-are green. Explicit non-goals remain below.
+Recently closed on the standalone repo: live clarify/resume UI refresh,
+resume → ``queued`` DB status, worker document-index warm + lazy DB load for
+``collection`` RAG, native Anthropic Messages client, follow-up/chat context in
+briefs, Documents UI, default ``searxng`` engine preference, PDF/clear/metrics
+surfaces, simulated_user discourse wiring, news engine defaults.
+
+Still thinner than a full chat product: chat remains session-scoped
+``fast_research`` with prior-report memory (not a dedicated dialog graph).
+Compose smoke proves health/schema/checkpointer, not a full live research run.
+Explicit non-goals remain below.
 
 ## Explicit non-goals
 
