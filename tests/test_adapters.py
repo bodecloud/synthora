@@ -422,3 +422,21 @@ def test_strategy_registry():
     )
     assert strategy_registry.resolve("topic").name == "topic_organization"
     assert strategy_registry.resolve("langgraph-agent").name == "langgraph_agent"
+
+
+def test_is_fetchable_url_blocks_ssrf():
+    from synthora.adapters.page_fetch import is_fetchable_url
+
+    assert is_fetchable_url("https://example.com/a")
+    assert not is_fetchable_url("http://127.0.0.1/secret")
+    assert not is_fetchable_url("http://localhost/x")
+    assert not is_fetchable_url("file:///etc/passwd")
+
+
+def test_html_to_text_strips_scripts():
+    from synthora.adapters.page_fetch import html_to_text
+
+    html = "<html><head><script>evil()</script></head><body><p>Hello <b>world</b></p></body></html>"
+    text = html_to_text(html)
+    assert "Hello" in text and "world" in text
+    assert "evil" not in text

@@ -25,6 +25,15 @@ export function NewResearch({
   const [plannerModel, setPlannerModel] = useState("");
   const [researcherModel, setResearcherModel] = useState("");
   const [writerModel, setWriterModel] = useState("");
+  const [compressorModel, setCompressorModel] = useState("");
+  const [criticModel, setCriticModel] = useState("");
+  const [numPerspectives, setNumPerspectives] = useState(3);
+  const [maxDiscourseTurns, setMaxDiscourseTurns] = useState(12);
+  const [maxAutonomousCycles, setMaxAutonomousCycles] = useState(3);
+  const [warmStart, setWarmStart] = useState(true);
+  const [pureRag, setPureRag] = useState(false);
+  const [simulatedUser, setSimulatedUser] = useState(false);
+  const [fetchPages, setFetchPages] = useState(true);
   const [mcpUrl, setMcpUrl] = useState("");
   const [mcpToken, setMcpToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,6 +84,19 @@ export function NewResearch({
       if (researcherModel.trim())
         config.researcher_model = researcherModel.trim();
       if (writerModel.trim()) config.writer_model = writerModel.trim();
+      if (compressorModel.trim())
+        config.compressor_model = compressorModel.trim();
+      if (criticModel.trim()) config.critic_model = criticModel.trim();
+      config.num_perspectives = numPerspectives;
+      config.max_discourse_turns = maxDiscourseTurns;
+      config.max_autonomous_cycles = maxAutonomousCycles;
+      config.extra = {
+        ...(config.extra as Record<string, unknown> | undefined),
+        warm_start: warmStart,
+        pure_rag: pureRag,
+        simulated_user: simulatedUser,
+        fetch_pages: fetchPages,
+      };
       if (mcpUrl.trim()) {
         const server: Record<string, string> = {
           url: mcpUrl.trim(),
@@ -82,7 +104,7 @@ export function NewResearch({
         };
         if (mcpToken.trim()) server.token = mcpToken.trim();
         config.extra = {
-          ...(config.extra as Record<string, unknown> | undefined),
+          ...(config.extra as Record<string, unknown>),
           mcp: { servers: [server] },
         };
       }
@@ -249,7 +271,106 @@ export function NewResearch({
               aria-label="writer model"
             />
           </label>
+          <label className="field">
+            Compressor model
+            <input
+              type="text"
+              placeholder="e.g. openai:gpt-4o-mini"
+              value={compressorModel}
+              onChange={(e) => setCompressorModel(e.target.value)}
+              aria-label="compressor model"
+            />
+          </label>
+          <label className="field">
+            Critic model
+            <input
+              type="text"
+              placeholder="e.g. openai:gpt-4o-mini"
+              value={criticModel}
+              onChange={(e) => setCriticModel(e.target.value)}
+              aria-label="critic model"
+            />
+          </label>
         </div>
+      </details>
+
+      <details className="model-details">
+        <summary>Advanced research controls</summary>
+        <div className="config-grid">
+          <label className="field">
+            Perspectives
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={numPerspectives}
+              onChange={(e) => setNumPerspectives(Number(e.target.value) || 1)}
+              aria-label="num perspectives"
+            />
+          </label>
+          <label className="field">
+            Max discourse turns
+            <input
+              type="number"
+              min={1}
+              max={40}
+              value={maxDiscourseTurns}
+              onChange={(e) =>
+                setMaxDiscourseTurns(Number(e.target.value) || 1)
+              }
+              aria-label="max discourse turns"
+            />
+          </label>
+          <label className="field">
+            Max autonomous cycles
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={maxAutonomousCycles}
+              onChange={(e) =>
+                setMaxAutonomousCycles(Number(e.target.value) || 1)
+              }
+              aria-label="max autonomous cycles"
+            />
+          </label>
+        </div>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={warmStart}
+            onChange={(e) => setWarmStart(e.target.checked)}
+            aria-label="warm start"
+          />
+          Warm-start discourse with perspective questions
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={pureRag}
+            onChange={(e) => setPureRag(e.target.checked)}
+            aria-label="pure rag"
+          />
+          Pure RAG turn (collection-only evidence)
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={simulatedUser}
+            onChange={(e) => setSimulatedUser(e.target.checked)}
+            aria-label="simulated user"
+          />
+          Simulated user turn in discourse
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={fetchPages}
+            onChange={(e) => setFetchPages(e.target.checked)}
+            aria-label="fetch pages"
+          />
+          Fetch full page content for thin search snippets
+        </label>
       </details>
 
       <details className="model-details">

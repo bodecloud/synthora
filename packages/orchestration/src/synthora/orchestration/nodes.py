@@ -225,26 +225,49 @@ async def researcher_step(state: ResearcherState, config: RunnableConfig) -> dic
 
 
 async def _summarize_findings(ctx, results: list[SearchResult]) -> list[SearchResult]:
-    """Compress long page bodies before they enter the ReAct / compress path."""
+    """Fetch thin snippets when needed, then compress long page bodies."""
+    from synthora.adapters.page_fetch import fetch_page_text
     from synthora.adapters.summarize import summarize_page
 
     max_chars = max(500, ctx.config.max_content_length // 10)
-    # Opt out via RunConfig.extra["summarize_pages"]=false
-    if (ctx.config.extra or {}).get("summarize_pages", True) is False:
+    extra = ctx.config.extra or {}
+    # Opt out via RunConfig.extra["summarize_pages"]=false / ["fetch_pages"]=false
+    do_fetch = extra.get("fetch_pages", True) is not False
+    do_summarize = extra.get("summarize_pages", True) is not False
+    if not do_fetch and not do_summarize:
         return results
     out: list[SearchResult] = []
     for r in results:
         body = r.content or r.snippet or ""
-        if len(body) <= max_chars:
-            out.append(r)
+        if do_fetch and r.url and len(body) < max(200, max_chars // 4):
+            fetched = await fetch_page_text(r.url)
+            if fetched:
+                body = fetched
+        if not do_summarize or len(body) <= max_chars:
+            if body and body != (r.content or r.snippet or ""):
+                out.append(
+                    r.model_copy(
+                        update={"content": body, "snippet": (body or "")[:500]}
+                    )
+                )
+            else:
+                out.append(r)
             continue
         try:
             summarized = await summarize_page(
                 ctx.researcher, r.title or r.url, body, max_chars=max_chars
             )
-            out.append(r.model_copy(update={"content": summarized, "snippet": summarized[:500]}))
+            out.append(
+                r.model_copy(
+                    update={"content": summarized, "snippet": summarized[:500]}
+                )
+            )
         except Exception:  # noqa: BLE001 — keep raw content on summarize failure
-            out.append(r)
+            out.append(
+                r.model_copy(update={"content": body, "snippet": body[:500]})
+                if body
+                else r
+            )
     return out
 
 
@@ -426,6 +449,7 @@ def build_citations(sources: list[SearchResult], run_id: str) -> list[Citation]:
                 snippet=s.snippet[:300],
                 confidence=min(1.0, max(0.1, s.score or 0.5)),
                 index=len(seen) + 1,
+                metadata=dict(s.metadata or {}),
             )
     return list(seen.values())
 

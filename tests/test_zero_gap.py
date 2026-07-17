@@ -194,9 +194,10 @@ async def test_outline_uses_knowledge_map_from_state():
     """outline_node must feed prior knowledge_nodes into OutlineBuilder."""
     import json
 
-    from synthora.core.models import KnowledgeNode, OutlineNode
+    from synthora.core.models import OutlineNode
     from synthora.intelligence.knowledge_map import KnowledgeMap
     from synthora.orchestration.intelligence_nodes import outline_node
+
     from tests.conftest import FakeChatModel
     from tests.helpers import graph_config, make_ctx
 
@@ -234,6 +235,7 @@ async def test_outline_uses_knowledge_map_from_state():
 async def test_section_write_drops_rejected_citations():
     from synthora.core.models import Citation, OutlineNode
     from synthora.orchestration.intelligence_nodes import section_write
+
     from tests.conftest import FakeChatModel
     from tests.helpers import graph_config, make_ctx
 

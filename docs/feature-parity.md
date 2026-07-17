@@ -104,11 +104,14 @@ SerpAPI / Mojeek resolve workspace provider settings; academic
 ``citation_verify`` drops rejected sources before section writing; key-required
 engines without credentials are filtered and fail loud at run start.
 
-Still open (non-blocking polish): URL page fetch beyond Tavily raw content;
-research-loop OpenAI/Ollama embeddings (documents already prefer OpenAI);
-multipart document upload; New Research advanced ``RunConfig`` fields; News
-subscription edit UI; citation year/author metadata in bibliography; optional
+Still open (non-blocking polish): research-loop OpenAI/Ollama embeddings
+(documents already prefer OpenAI); multipart document upload; optional
 streamable-HTTP MCP server (REST shim exists).
+
+Also closed in this pass: URL page fetch for thin snippets, citation
+year/author bibliography lines, News subscription edit UI, and New Research
+advanced ``RunConfig`` controls (models, perspectives, discourse, autonomous
+cycles, warm_start / pure_rag / simulated_user / fetch_pages).
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —
 intentional product shape. Explicit non-goals remain below.

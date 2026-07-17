@@ -297,7 +297,19 @@ async def bibliography_node(state: AgentState, config: RunnableConfig) -> dict:
     citations = [c for c in state.get("citations", []) if c.verified]
     lines = ["", "## Bibliography", ""]
     for c in sorted(citations, key=lambda c: c.index or 0):
-        meta = ""
+        meta_bits: list[str] = []
+        md = c.metadata or {}
+        authors = md.get("authors")
+        if isinstance(authors, list) and authors:
+            names = [str(a) for a in authors if a][:8]
+            if names:
+                meta_bits.append(", ".join(names))
+        elif isinstance(authors, str) and authors.strip():
+            meta_bits.append(authors.strip())
+        year = md.get("year")
+        if year not in (None, ""):
+            meta_bits.append(f"({year})")
+        meta = f" — {'; '.join(meta_bits)}" if meta_bits else ""
         lines.append(f"[{c.index}] {c.title}{meta}. Available at: {c.url}")
     report = state.get("report", "")
     return {"report": report + "\n" + "\n".join(lines)}

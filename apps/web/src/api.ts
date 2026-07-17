@@ -129,6 +129,10 @@ export interface ResearchConfig {
   compressor_model?: string;
   writer_model?: string;
   critic_model?: string;
+  num_perspectives?: number;
+  max_discourse_turns?: number;
+  max_autonomous_cycles?: number;
+  extra?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -376,6 +380,14 @@ export const api = {
       `/api/v1/news/subscriptions/${id}`,
       { method: "DELETE" },
     ),
+  updateNewsSubscription: (
+    id: string,
+    patch: { query?: string; cadence?: string },
+  ) =>
+    request<NewsSubscription>(`/api/v1/news/subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
   fetchNewsSubscription: (id: string) =>
     request<{
       subscription_id: string;
