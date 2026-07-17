@@ -28,6 +28,12 @@ curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/pipelines"
 echo
 
 echo "==> waiting for web UI"
+for i in $(seq 1 60); do
+  if curl -fsS "http://localhost:${SYNTHORA_WEB_PORT:-3000}/" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
 curl -fsS "http://localhost:${SYNTHORA_WEB_PORT:-3000}/" >/dev/null
 
 echo "==> worker heartbeat"
