@@ -110,3 +110,37 @@ async def test_news_does_not_advance_last_run_on_total_failure(db):
     refreshed = await repo.get_subscription(sub.id)
     assert refreshed is not None
     assert refreshed.last_run_at is None
+
+
+@pytest.mark.asyncio
+async def test_nested_researcher_accepts_thread_id():
+    """Nested graphs must support thread_id (MemorySaver), not bare compile()."""
+    from synthora.adapters.llm import FakeRoutingModel
+    from synthora.adapters.search_engines import FakeSearchEngine
+    from synthora.core.models import RunConfig
+    from synthora.orchestration.context import ResearchContext
+    from synthora.orchestration.graphs import build_researcher_graph
+
+    ctx = ResearchContext(
+        run_id="nested-smoke",
+        config=RunConfig(
+            search_engines=["fake"],
+            max_react_tool_calls=2,
+            allow_clarification=False,
+        ),
+        planner=FakeRoutingModel(),
+        researcher=FakeRoutingModel(),
+        compressor=FakeRoutingModel(),
+        writer=FakeRoutingModel(),
+        critic=FakeRoutingModel(),
+        engines=[FakeSearchEngine()],
+    )
+    graph = build_researcher_graph()
+    result = await graph.ainvoke(
+        {"topic": "smoke topic", "tool_calls": 0},
+        config={
+            "configurable": {"synthora_ctx": ctx, "thread_id": "nested-smoke:researcher"},
+            "recursion_limit": 50,
+        },
+    )
+    assert result.get("findings") or result.get("compressed")

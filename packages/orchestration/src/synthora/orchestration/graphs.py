@@ -4,6 +4,7 @@ ODR-style deep researcher core (R-ODR-1, R-ODR-7)."""
 from __future__ import annotations
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from synthora.orchestration.nodes import (
     clarify_interrupt,
@@ -27,9 +28,8 @@ from synthora.orchestration.state import (
 def build_researcher_graph():
     """Isolated researcher: ReAct search loop -> compression.
 
-    Compiled without a durable checkpointer: interrupts/resume live only on
-    the parent pipeline. Sharing PostgresSaver with the parent has caused
-    nested-run failures under a single connection.
+    Uses an ephemeral MemorySaver so nested ``thread_id`` configs work, without
+    sharing the parent's durable PostgresSaver connection.
     """
     g = StateGraph(ResearcherState)
     g.add_node("researcher_step", researcher_step)
@@ -41,13 +41,13 @@ def build_researcher_graph():
         {"researcher_step": "researcher_step", "compress": "compress"},
     )
     g.add_edge("compress", END)
-    return g.compile()
+    return g.compile(checkpointer=MemorySaver())
 
 
 def build_supervisor_graph():
     """Supervisor loop: plan -> delegate (parallel researchers) -> iterate.
 
-    No durable checkpointer — see ``build_researcher_graph``.
+    Ephemeral MemorySaver — see ``build_researcher_graph``.
     """
     g = StateGraph(SupervisorState)
     g.add_node("supervisor", supervisor)
@@ -63,7 +63,7 @@ def build_supervisor_graph():
         },
     )
     g.add_edge("supervisor_tools", "supervisor")
-    return g.compile()
+    return g.compile(checkpointer=MemorySaver())
 
 
 async def run_supervisor_phase(state: AgentState, config: RunnableConfig) -> dict:

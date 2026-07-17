@@ -55,7 +55,7 @@ grep -E 'research_runs|provider_settings|documents' /tmp/synthora-tables.txt >/d
 if [[ "${SYNTHORA_CHECKPOINT_BACKEND:-postgres}" == "postgres" ]]; then
   echo "==> initializing postgres checkpointer"
   docker compose exec -T worker sh -c \
-    'python -c "import os; from langgraph.checkpoint.postgres import PostgresSaver; url=os.environ[\"SYNTHORA_CHECKPOINT_URL\"]; cm=PostgresSaver.from_conn_string(url); s=cm.__enter__(); s.setup(); print(\"postgres checkpointer ok\")"'
+    'python -c "import asyncio; from synthora.orchestration.checkpoint import ensure_checkpointer; asyncio.run(ensure_checkpointer()); print(\"async postgres checkpointer ok\")"'
   docker compose exec -T postgres \
     psql -U "${POSTGRES_USER:-synthora}" -d "${POSTGRES_DB:-synthora}" -c '\dt' \
     | tee /tmp/synthora-tables2.txt

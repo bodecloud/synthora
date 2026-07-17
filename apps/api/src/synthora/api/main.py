@@ -51,10 +51,12 @@ from synthora.worker.queue import RedisJobQueue, events_channel
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from synthora.adapters.document_index import warm_document_index_from_db
+    from synthora.orchestration.checkpoint import ensure_checkpointer
 
     settings.assert_secure_for_auth()
     db = Database(settings.database_url)
     await db.ensure_schema()
+    await ensure_checkpointer()
     redis = aioredis.from_url(settings.redis_url)
     app.state.db = db
     app.state.redis = redis
