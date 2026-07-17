@@ -46,6 +46,7 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+timeout = 60
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]

@@ -149,7 +149,10 @@ def test_session_auth_workspace_and_ws_isolation(platform):
         with client.websocket_connect(
             f"/api/v1/research/{run_id}/events/ws?token={alice_token}"
         ) as ws:
+            # Authenticated connect must succeed; close immediately so we don't
+            # block forever on the Redis pub/sub listener.
             assert ws is not None
+            ws.close()
     finally:
         settings.auth_mode = "none"
         settings.secret_key = "change-me"
