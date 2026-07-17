@@ -91,7 +91,16 @@ for i in $(seq 1 90); do
   fi
   sleep 2
 done
-[[ "$STATUS" == "completed" ]] || { echo "research run did not complete (status=$STATUS)"; exit 1; }
+[[ "$STATUS" == "completed" ]] || {
+  echo "research run did not complete (status=$STATUS)"
+  curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}" || true
+  echo
+  echo "==> worker logs (tail)"
+  docker compose logs --tail=80 worker || true
+  echo "==> api logs (tail)"
+  docker compose logs --tail=40 api || true
+  exit 1
+}
 REPORT=$(curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/report")
 echo "$REPORT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("report_markdown"), d; print("report ok:", d["report_markdown"][:80])'
 

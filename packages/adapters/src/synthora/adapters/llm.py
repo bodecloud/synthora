@@ -207,6 +207,14 @@ class FakeRoutingModel:
             user = messages[-1].get("content", "") if len(messages) > 1 else ""
             return f"Smoke research brief.\n\n{user[:500]}"
         if "researcher with a search tool" in system:
+            user = messages[-1].get("content", "") if len(messages) > 1 else ""
+            findings_body = ""
+            if "Findings:\n" in user:
+                findings_body = user.split("Findings:\n", 1)[-1].strip()
+            if findings_body and findings_body != "(none yet)":
+                return json.dumps(
+                    {"action": "complete", "reflection": "enough for smoke"}
+                )
             return json.dumps(
                 {"action": "search", "query": "smoke query", "reflection": "start"}
             )
