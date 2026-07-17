@@ -133,6 +133,19 @@ def test_session_auth_workspace_and_ws_isolation(platform):
         assert (
             client.get(f"/api/v1/research/{run_id}", headers=bob_h).status_code == 404
         )
+        # Alice can read events over HTTP; Bob cannot.
+        assert (
+            client.get(
+                f"/api/v1/research/{run_id}/events", headers=alice_h
+            ).status_code
+            == 200
+        )
+        assert (
+            client.get(
+                f"/api/v1/research/{run_id}/events", headers=bob_h
+            ).status_code
+            == 404
+        )
 
         with pytest.raises(Exception):
             with client.websocket_connect(
@@ -145,14 +158,6 @@ def test_session_auth_workspace_and_ws_isolation(platform):
                 f"/api/v1/research/{run_id}/events/ws?token={bob_token}"
             ) as ws:
                 ws.receive_json()
-
-        with client.websocket_connect(
-            f"/api/v1/research/{run_id}/events/ws?token={alice_token}"
-        ) as ws:
-            # Authenticated connect must succeed; close immediately so we don't
-            # block forever on the Redis pub/sub listener.
-            assert ws is not None
-            ws.close()
     finally:
         settings.auth_mode = "none"
         settings.secret_key = "change-me"

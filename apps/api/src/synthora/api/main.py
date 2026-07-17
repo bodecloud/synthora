@@ -602,17 +602,34 @@ async def events_ws(
         await pubsub.subscribe(events_channel(run_id))
         try:
             while True:
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                # Bound Redis polls so a closed client / stuck fakeredis cannot
+                # pin the handler forever.
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(
+                            ignore_subscribe_messages=True, timeout=0.5
+                        ),
+                        timeout=1.5,
+                    )
+                except asyncio.TimeoutError:
+                    message = None
                 if message is None:
-                    await asyncio.sleep(0)
+                    # Soft disconnect probe: aborted sends mean the client left.
+                    try:
+                        await asyncio.wait_for(websocket.receive(), timeout=0.01)
+                    except asyncio.TimeoutError:
+                        pass
+                    except WebSocketDisconnect:
+                        break
                     continue
                 data = message["data"]
                 if isinstance(data, bytes):
                     data = data.decode()
                 payload = json.loads(data)
-                await websocket.send_json(payload)
+                try:
+                    await websocket.send_json(payload)
+                except (WebSocketDisconnect, RuntimeError):
+                    break
                 if payload.get("type") in ("done", "error"):
                     break
         finally:
