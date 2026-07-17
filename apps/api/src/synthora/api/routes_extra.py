@@ -103,9 +103,9 @@ def _chunk_text(text: str, size: int = 500) -> list[str]:
 
 
 def _embedding_model():
-    if os.environ.get("OPENAI_API_KEY"):
-        return OpenAIEmbeddings()
-    return HashEmbeddings()
+    from synthora.adapters.embeddings import resolve_default_embeddings
+
+    return resolve_default_embeddings()
 
 
 async def _get_run_checked(

@@ -147,3 +147,10 @@ embedding_registry = EmbeddingRegistry()
 embedding_registry.register("openai", lambda m: OpenAIEmbeddings(m))
 embedding_registry.register("ollama", lambda m: OllamaEmbeddings(m))
 embedding_registry.register("hash", lambda m: HashEmbeddings(m))
+
+
+def resolve_default_embeddings() -> EmbeddingModel:
+    """Prefer OpenAI when keyed, else deterministic hash (offline-safe)."""
+    if _env("OPENAI_API_KEY"):
+        return OpenAIEmbeddings()
+    return HashEmbeddings()

@@ -76,7 +76,7 @@ class TavilyEngine:
     name = "tavily"
 
     def __init__(self, api_key: Optional[str] = None, timeout: float = 30.0) -> None:
-        self.api_key = api_key or os.environ.get("TAVILY_API_KEY", "")
+        self.api_key = api_key or _env("TAVILY_API_KEY")
         self.timeout = timeout
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
@@ -158,7 +158,7 @@ class SemanticScholarEngine:
     name = "semantic_scholar"
 
     def __init__(self, api_key: Optional[str] = None, timeout: float = 30.0) -> None:
-        self.api_key = api_key or os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "")
+        self.api_key = api_key or _env("SEMANTIC_SCHOLAR_API_KEY")
         self.timeout = timeout
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
@@ -946,6 +946,15 @@ class CollectionEngine:
         from synthora.adapters.workspace_context import get_workspace_id
 
         workspace_id = get_workspace_id()
+        query_embedding: list[float] | None = None
+        try:
+            from synthora.adapters.embeddings import resolve_default_embeddings
+
+            vectors = await resolve_default_embeddings().embed([query])
+            if vectors:
+                query_embedding = vectors[0]
+        except Exception:
+            logger.debug("collection query embedding failed", exc_info=True)
         # Prefer the shared RAG index for *this* workspace only (no cross-tenant scan).
         try:
             from synthora.adapters.document_index import (
@@ -954,7 +963,10 @@ class CollectionEngine:
             )
 
             indexed = document_index.search(
-                workspace_id, query, max_results=max_results
+                workspace_id,
+                query,
+                query_embedding=query_embedding,
+                max_results=max_results,
             )
             if not indexed and not document_index.documents(workspace_id):
                 db_url = os.environ.get("SYNTHORA_DATABASE_URL") or os.environ.get(
@@ -969,7 +981,10 @@ class CollectionEngine:
                     finally:
                         await db.dispose()
                     indexed = document_index.search(
-                        workspace_id, query, max_results=max_results
+                        workspace_id,
+                        query,
+                        query_embedding=query_embedding,
+                        max_results=max_results,
                     )
             if indexed:
                 return indexed
@@ -1021,6 +1036,43 @@ class CollectionEngine:
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
+
+
+
+# Engines that cannot search without an API key (optional-key engines omitted).
+_KEY_REQUIRED_ENGINES = frozenset(
+    {
+        "tavily",
+        "brave",
+        "serper",
+        "serpapi",
+        "mojeek",
+        "exa",
+        "guardian",
+        "google_pse",
+        "bing",
+    }
+)
+
+
+def engine_is_usable(engine: SearchEngine) -> bool:
+    """Return False for null engines or key-required engines missing credentials."""
+    name = getattr(engine, "name", "") or ""
+    if name in ("none", "null"):
+        return False
+    if name == "bing":
+        return bool(
+            getattr(engine, "bing_key", None)
+            or getattr(engine, "serper_key", None)
+            or getattr(engine, "api_key", None)
+        )
+    if name in _KEY_REQUIRED_ENGINES:
+        key = getattr(engine, "api_key", None)
+        if not key:
+            return False
+        if name == "google_pse" and not getattr(engine, "cx", None):
+            return False
+    return True
 
 
 class SearchEngineRegistry:
@@ -1215,7 +1267,7 @@ class SerpApiEngine:
     name = "serpapi"
 
     def __init__(self, api_key: Optional[str] = None, timeout: float = 30.0) -> None:
-        self.api_key = api_key or os.environ.get("SERPAPI_API_KEY", "")
+        self.api_key = api_key or _env("SERPAPI_API_KEY")
         self.timeout = timeout
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
@@ -1248,7 +1300,7 @@ class MojeekEngine:
     name = "mojeek"
 
     def __init__(self, api_key: Optional[str] = None, timeout: float = 20.0) -> None:
-        self.api_key = api_key or os.environ.get("MOJEEK_API_KEY", "")
+        self.api_key = api_key or _env("MOJEEK_API_KEY")
         self.timeout = timeout
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
