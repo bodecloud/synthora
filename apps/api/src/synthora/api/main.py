@@ -22,6 +22,7 @@ from synthora.api.auth import (
 )
 from synthora.api.routes_extra import extra_router
 from synthora.api.settings import settings
+from synthora.core.events import ProgressEvent, RunEventType
 from synthora.core.models import (
     Artifact,
     ArtifactKind,
@@ -380,7 +381,23 @@ async def cancel_research(
     ):
         raise HTTPException(status_code=409, detail=f"run already {run.status.value}")
     await get_queue().request_cancel(run_id)
-    return {"run_id": run_id, "cancel_requested": True}
+    # Reflect cancel immediately so UI does not stay stuck on "running".
+    if run.status in (RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.AWAITING_INPUT):
+        run.status = RunStatus.CANCELLED
+        from datetime import datetime, timezone
+
+        run.finished_at = datetime.now(timezone.utc)
+        run.error = "cancelled by user"
+        await RunRepositorySQL(get_db()).update(run)
+        event = ProgressEvent(
+            run_id=run.id,
+            type=RunEventType.STATUS,
+            message="cancelled",
+            payload={"status": "cancelled"},
+        )
+        await EventRepository(get_db()).append(event)
+        await get_queue().publish_event(run.id, event.to_wire())
+    return {"run_id": run_id, "cancel_requested": True, "status": "cancelled"}
 
 
 @app.post("/api/v1/research/{run_id}/resume", status_code=202)
@@ -406,7 +423,12 @@ async def resume_research(
 async def steer_research(
     run_id: str, body: SteerRequest, identity: dict = Depends(current_identity)
 ) -> dict:
-    await _get_run_checked(run_id, identity)
+    run = await _get_run_checked(run_id, identity)
+    if run.status not in (RunStatus.QUEUED, RunStatus.RUNNING):
+        raise HTTPException(
+            status_code=409,
+            detail=f"run is {run.status.value}, expected queued or running",
+        )
     await get_queue().push_steering(run_id, body.message)
     return {"run_id": run_id, "steered": True}
 

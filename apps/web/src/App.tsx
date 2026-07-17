@@ -23,17 +23,32 @@ type View =
   | { name: "documents" }
   | { name: "run"; runId: string };
 
+const CHAT_SESSION_KEY = "synthora_chat_session";
+
 export function App() {
   const [view, setView] = useState<View>({ name: "new" });
   const [authed, setAuthed] = useState(() => Boolean(loadStoredToken()));
+  const [chatSessionId, setChatSessionId] = useState(() => {
+    if (typeof sessionStorage === "undefined") return "";
+    return sessionStorage.getItem(CHAT_SESSION_KEY) || "";
+  });
 
   useEffect(() => {
     setAuthed(Boolean(getToken()));
   }, [view]);
 
+  function persistChatSession(id: string) {
+    setChatSessionId(id);
+    if (typeof sessionStorage !== "undefined") {
+      if (id) sessionStorage.setItem(CHAT_SESSION_KEY, id);
+      else sessionStorage.removeItem(CHAT_SESSION_KEY);
+    }
+  }
+
   function signOut() {
     clearToken();
     setAuthed(false);
+    persistChatSession("");
     setView({ name: "login" });
   }
 
@@ -99,7 +114,11 @@ export function App() {
           <NewResearch onStarted={(runId) => setView({ name: "run", runId })} />
         )}
         {view.name === "chat" && (
-          <Chat onStarted={(runId) => setView({ name: "run", runId })} />
+          <Chat
+            sessionId={chatSessionId}
+            onSessionId={persistChatSession}
+            onStarted={(runId) => setView({ name: "run", runId })}
+          />
         )}
         {view.name === "news" && <News />}
         {view.name === "documents" && <Documents />}

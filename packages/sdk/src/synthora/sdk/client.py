@@ -139,6 +139,91 @@ class SynthoraClient:
             time.sleep(poll_seconds)
         raise TimeoutError(f"run {run_id} did not finish within {timeout}s")
 
+    # -- chat / follow-up ----------------------------------------------------
+
+    def chat(self, message: str, *, session_id: Optional[str] = None) -> dict:
+        body: dict[str, Any] = {"message": message}
+        if session_id:
+            body["session_id"] = session_id
+        return self._post("/api/v1/chat", body)
+
+    def followup(
+        self, run_id: str, question: str, *, pipeline_id: Optional[str] = None
+    ) -> dict:
+        body: dict[str, Any] = {"question": question}
+        if pipeline_id:
+            body["pipeline_id"] = pipeline_id
+        return self._post(f"/api/v1/research/{run_id}/followup", body)
+
+    # -- documents -----------------------------------------------------------
+
+    def list_documents(self) -> list[dict]:
+        return self._get("/api/v1/documents")["documents"]
+
+    def create_document(
+        self, title: str, content: str, *, url: Optional[str] = None
+    ) -> dict:
+        body: dict[str, Any] = {"title": title, "content": content}
+        if url:
+            body["url"] = url
+        return self._post("/api/v1/documents", body)
+
+    def delete_document(self, document_id: str) -> dict:
+        return self._delete(f"/api/v1/documents/{document_id}")
+
+    def search_documents(self, query: str) -> list[dict]:
+        return self._post("/api/v1/documents/search", {"query": query}).get(
+            "results", []
+        )
+
+    # -- news ----------------------------------------------------------------
+
+    def list_news_subscriptions(self) -> list[dict]:
+        return self._get("/api/v1/news/subscriptions")["subscriptions"]
+
+    def create_news_subscription(self, query: str, *, cadence: str = "daily") -> dict:
+        return self._post(
+            "/api/v1/news/subscriptions", {"query": query, "cadence": cadence}
+        )
+
+    def delete_news_subscription(self, subscription_id: str) -> dict:
+        return self._delete(f"/api/v1/news/subscriptions/{subscription_id}")
+
+    def fetch_news_subscription(self, subscription_id: str) -> dict:
+        return self._post(f"/api/v1/news/subscriptions/{subscription_id}/fetch", {})
+
+    def list_news_items(self, *, subscription_id: Optional[str] = None) -> list[dict]:
+        path = "/api/v1/news/items"
+        if subscription_id:
+            path = f"{path}?subscription_id={subscription_id}"
+        return self._get(path)["items"]
+
+    # -- settings / metrics / mcp --------------------------------------------
+
+    def list_settings(self) -> list[dict]:
+        return self._get("/api/v1/settings")["settings"]
+
+    def get_setting(self, key: str) -> dict:
+        return self._get(f"/api/v1/settings/{key}")
+
+    def put_setting(self, key: str, value: dict[str, Any]) -> dict:
+        return self._put(f"/api/v1/settings/{key}", {"value": value})
+
+    def get_run_metrics(self, run_id: str) -> dict:
+        return self._get(f"/api/v1/research/{run_id}/metrics")
+
+    def metrics_summary(self) -> dict:
+        return self._get("/api/v1/metrics/summary")
+
+    def mcp_tools_list(self) -> dict:
+        return self._post("/api/v1/mcp/tools/list", {})
+
+    def mcp_tools_call(self, name: str, arguments: Optional[dict] = None) -> dict:
+        return self._post(
+            "/api/v1/mcp/tools/call",
+            {"name": name, "arguments": arguments or {}},
+        )
+
     # -- plumbing ----------------------------------------------------------
 
     def _headers(self) -> dict:
@@ -151,6 +236,11 @@ class SynthoraClient:
 
     def _post(self, path: str, body: dict) -> dict:
         resp = self._client.post(path, json=body, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def _put(self, path: str, body: dict) -> dict:
+        resp = self._client.put(path, json=body, headers=self._headers())
         resp.raise_for_status()
         return resp.json()
 

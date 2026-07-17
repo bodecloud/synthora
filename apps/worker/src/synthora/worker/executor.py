@@ -19,7 +19,7 @@ from synthora.core.models import (
     RunStatus,
 )
 from synthora.orchestration import pipelines  # noqa: F401  (registers pipelines)
-from synthora.orchestration.context import ResearchContext
+from synthora.orchestration.context import ResearchContext, RunCancelledSignal
 from synthora.orchestration.registry import pipeline_registry
 from synthora.persistence import (
     ArtifactRepository,
@@ -96,6 +96,25 @@ class RunExecutor:
             await self.events.append(event)
             await self.queue.publish_event(run.id, event.to_wire())
 
+        async def cancel_check() -> bool:
+            return await self.queue.is_cancelled(run.id)
+
+        async def drain_steering() -> list[str]:
+            return await self.queue.drain_steering(run.id)
+
+        engines = self._resolve_engines(cfg.search_engines)
+        engine_names = [getattr(e, "name", "") for e in engines]
+        offline_only = bool(engine_names) and all(
+            n in ("none", "null") for n in engine_names
+        )
+        if not engines or offline_only:
+            if not (cfg.extra or {}).get("allow_empty_search"):
+                raise RuntimeError(
+                    "No usable search engines configured "
+                    f"(got {engine_names or '[]'}). "
+                    "Pass allow_empty_search in config.extra to override."
+                )
+
         ctx = ResearchContext(
             run_id=run.id,
             config=cfg,
@@ -104,9 +123,11 @@ class RunExecutor:
             compressor=self._resolve_model(cfg.compressor_model),
             writer=self._resolve_model(cfg.writer_model),
             critic=self._resolve_model(cfg.critic_model),
-            engines=self._resolve_engines(cfg.search_engines),
+            engines=engines,
             strategy=self._resolve_strategy(cfg.search_strategy),
             event_sink=sink,
+            cancel_check=cancel_check,
+            drain_steering=drain_steering,
         )
         ctx.wrap_providers()
         return ctx
@@ -191,9 +212,15 @@ class RunExecutor:
 
                 try:
                     ctx.mcp_tools = await load_mcp_tools(run.config.extra.get("mcp"))
-                except Exception:
+                except Exception as exc:
                     logger.exception("failed to load MCP tools for run %s", run.id)
-                    ctx.mcp_tools = []
+                    raise RuntimeError(
+                        f"MCP tools required by config but failed to load: {exc}"
+                    ) from exc
+                if not ctx.mcp_tools:
+                    raise RuntimeError(
+                        "MCP tools required by config but none were loaded"
+                    )
             graph = pipeline_registry.build(run.pipeline_id)
             config = self._graph_config(run, ctx)
             try:
@@ -237,10 +264,23 @@ class RunExecutor:
                         )
                     return run
 
+                sources = result.get("sources") or []
+                engine_names = [
+                    getattr(e, "name", "") for e in (ctx.engines or [])
+                ]
+                allow_empty = bool(
+                    (run.config.extra or {}).get("allow_empty_search")
+                ) or all(n in ("none", "null") for n in engine_names)
+                if not sources and not allow_empty:
+                    raise RuntimeError(
+                        "Research completed with zero search results from "
+                        f"engines {engine_names}; check API keys / engine config"
+                    )
+
                 await self._persist_result(run, result)
                 run.brief = result.get("brief")
                 run.status = RunStatus.COMPLETED
-            except RunCancelled:
+            except (RunCancelled, RunCancelledSignal):
                 run.status = RunStatus.CANCELLED
             except Exception as exc:
                 logger.exception("run %s failed", run.id)

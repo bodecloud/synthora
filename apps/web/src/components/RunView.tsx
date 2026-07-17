@@ -233,7 +233,23 @@ export function RunView({
 
         {running && (
           <>
-            <button className="ghost" onClick={() => api.cancelRun(runId)}>
+            <button
+              className="ghost"
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  await api.cancelRun(runId);
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
               Cancel run
             </button>
             <div className="steer-row">
@@ -246,10 +262,22 @@ export function RunView({
               />
               <button
                 className="primary"
-                disabled={!steer.trim()}
-                onClick={() => {
-                  api.steerRun(runId, steer.trim());
-                  setSteer("");
+                type="button"
+                disabled={busy || !steer.trim()}
+                onClick={async () => {
+                  const msg = steer.trim();
+                  if (!msg) return;
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    await api.steerRun(runId, msg);
+                    setSteer("");
+                    await refresh();
+                  } catch (e) {
+                    setError(String(e));
+                  } finally {
+                    setBusy(false);
+                  }
                 }}
               >
                 Steer

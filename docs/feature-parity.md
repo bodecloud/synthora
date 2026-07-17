@@ -95,15 +95,16 @@ Verified by `tests/test_isolation.py`.
 
 ## Residual gaps (known)
 
-Recently closed on the standalone repo: live clarify/resume UI refresh,
-resume → ``queued`` DB status, worker document-index warm + lazy DB load for
-``collection`` RAG, native Anthropic Messages client, follow-up/chat context in
-briefs, Documents UI, default ``searxng`` engine preference, PDF/clear/metrics
-surfaces, simulated_user discourse wiring, news engine defaults.
+Closed on ``feat/zero-gap-closure``: compose smoke live ``fast_research`` with
+``fake`` LLM/search, cooperative cancel/steer in the worker loop, fail-loud
+empty-engine / MCP load, MCP HTTP Bearer for session self-calls, chat session
+persistence + transcript UI, RunView awaited cancel/steer, WS reconnect with
+REST event gap-fill, SDK coverage for chat/follow-up/documents/news/settings/
+metrics/MCP, news poller no longer advances ``last_run_at`` on total engine
+failure.
 
-Still thinner than a full chat product: chat remains session-scoped
-``fast_research`` with prior-report memory (not a dedicated dialog graph).
-Compose smoke proves health/schema/checkpointer, not a full live research run.
+Chat remains session-scoped ``fast_research`` with prior-report memory (not a
+dedicated dialog graph) — intentional product shape, not an unfinished stub.
 Explicit non-goals remain below.
 
 ## Explicit non-goals

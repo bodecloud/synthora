@@ -140,7 +140,12 @@ async def researcher_step(state: ResearcherState, config: RunnableConfig) -> dic
                 "role": "user",
                 "content": f"Topic: {topic}\nSearches used: {calls}/"
                 f"{ctx.config.max_react_tool_calls}\nFindings:\n"
-                f"{findings_summary or '(none yet)'}",
+                f"{findings_summary or '(none yet)'}"
+                + (
+                    "\nUser steering: " + "; ".join(ctx.steering)
+                    if ctx.steering
+                    else ""
+                ),
             },
         ]
     )
