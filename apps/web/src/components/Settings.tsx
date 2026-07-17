@@ -1,7 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, Providers } from "../api";
 
-const EDITABLE_KEYS = [
+const FALLBACK_KEYS = [
   "openai",
   "anthropic",
   "openrouter",
@@ -9,6 +9,9 @@ const EDITABLE_KEYS = [
   "tavily",
   "brave",
   "searxng",
+  "serper",
+  "google",
+  "deepseek",
 ] as const;
 
 type SettingMap = Record<string, Record<string, unknown>>;
@@ -22,16 +25,39 @@ export function Settings() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [metrics, setMetrics] = useState<{
+    runs: number;
+    llm_calls: number;
+    prompt_chars: number;
+    completion_chars: number;
+    search_calls: number;
+  } | null>(null);
+
+  const editableKeys = useMemo(() => {
+    const fromProviders = [
+      ...(providers?.llm_providers ?? []),
+      ...(providers?.search_engines ?? []),
+    ];
+    const merged = Array.from(
+      new Set([...FALLBACK_KEYS, ...fromProviders, ...Object.keys(settings)]),
+    ).sort();
+    return merged;
+  }, [providers, settings]);
 
   useEffect(() => {
-    Promise.all([api.listProviders(), api.listSettings()])
-      .then(([prov, rows]) => {
+    Promise.all([
+      api.listProviders(),
+      api.listSettings(),
+      api.metricsSummary().catch(() => null),
+    ])
+      .then(([prov, rows, summary]) => {
         setProviders(prov);
         const map: SettingMap = {};
         for (const row of rows) {
           map[row.key] = row.value || {};
         }
         setSettings(map);
+        if (summary) setMetrics(summary);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -87,7 +113,7 @@ export function Settings() {
             onChange={(e) => setSelected(e.target.value)}
             aria-label="provider key"
           >
-            {EDITABLE_KEYS.map((key) => (
+            {editableKeys.map((key) => (
               <option key={key} value={key}>
                 {key}
               </option>
@@ -124,6 +150,17 @@ export function Settings() {
         defaults.
       </p>
 
+      {metrics && (
+        <>
+          <h2>Workspace usage</h2>
+          <p className="muted">
+            {metrics.runs} runs · {metrics.llm_calls} LLM calls ·{" "}
+            {metrics.search_calls} searches ·{" "}
+            {metrics.prompt_chars + metrics.completion_chars} chars
+          </p>
+        </>
+      )}
+
       <h2>Provider catalogs</h2>
       {providers && (
         <>
@@ -149,9 +186,6 @@ export function Settings() {
 
           <h3>Search strategies</h3>
           <div className="provider-list" aria-label="search strategies">
-            {providers.search_strategies.length === 0 && (
-              <span className="muted">None registered</span>
-            )}
             {providers.search_strategies.map((p) => (
               <code key={p}>{p}</code>
             ))}

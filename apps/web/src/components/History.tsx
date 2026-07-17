@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
-import { api, RunSummary } from "../api";
+import { api, RunSummary, SessionSummary } from "../api";
 
 export function History({ onOpen }: { onOpen: (runId: string) => void }) {
   const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -11,6 +12,12 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
       .listRuns()
       .then(setRuns)
       .catch((e) => setError(String(e)));
+    api
+      .listSessions()
+      .then(setSessions)
+      .catch(() => {
+        /* sessions optional when auth is off / unavailable */
+      });
   }, []);
 
   useEffect(() => {
@@ -28,6 +35,22 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     }
   }
 
+  async function handleDeleteSession(sessionId: string) {
+    if (
+      !window.confirm(
+        "Delete this session? Runs keep their history but lose the session link display.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.deleteSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   async function handleClearAll() {
     if (!window.confirm("Delete ALL research runs in this workspace?")) return;
     setBusy(true);
@@ -40,6 +63,12 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function sessionTitle(id: string | null): string {
+    if (!id) return "—";
+    const match = sessions.find((s) => s.id === id);
+    return match?.title || `${id.slice(0, 8)}…`;
   }
 
   return (
@@ -80,9 +109,7 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
                 </td>
                 <td>
                   {r.session_id ? (
-                    <code title={r.session_id}>
-                      {r.session_id.slice(0, 8)}…
-                    </code>
+                    <span title={r.session_id}>{sessionTitle(r.session_id)}</span>
                   ) : (
                     <span className="muted">—</span>
                   )}
@@ -107,6 +134,36 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {sessions.length > 0 && (
+        <>
+          <h2>Sessions</h2>
+          <ul className="discourse-list">
+            {sessions.map((s) => (
+              <li key={s.id} className="discourse-turn">
+                <div className="discourse-meta">
+                  <strong>{s.title}</strong>
+                  <span className="muted">
+                    {" "}
+                    · <code>{s.id.slice(0, 8)}…</code>
+                  </span>
+                  <button
+                    type="button"
+                    className="ghost danger"
+                    style={{ marginLeft: "0.5rem" }}
+                    onClick={() => handleDeleteSession(s.id)}
+                  >
+                    Delete session
+                  </button>
+                </div>
+                {s.tags?.length ? (
+                  <p className="muted">{s.tags.join(", ")}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

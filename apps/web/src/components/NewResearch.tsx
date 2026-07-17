@@ -18,6 +18,7 @@ export function NewResearch({
   const [pipelineId, setPipelineId] = useState("deep_research");
   const [question, setQuestion] = useState("");
   const [sessionId, setSessionId] = useState("");
+  const [newSessionTitle, setNewSessionTitle] = useState("");
   const [engines, setEngines] = useState<string[]>([]);
   const [strategy, setStrategy] = useState("");
   const [allowClarification, setAllowClarification] = useState(false);
@@ -140,6 +141,35 @@ export function NewResearch({
               </option>
             ))}
           </select>
+        </label>
+        <label className="field">
+          New session title
+          <div className="steer-row">
+            <input
+              type="text"
+              placeholder="Optional — create then select"
+              value={newSessionTitle}
+              onChange={(e) => setNewSessionTitle(e.target.value)}
+              aria-label="new session title"
+            />
+            <button
+              type="button"
+              className="ghost"
+              disabled={!newSessionTitle.trim()}
+              onClick={async () => {
+                try {
+                  const created = await api.createSession(newSessionTitle.trim());
+                  setSessions((prev) => [created, ...prev]);
+                  setSessionId(created.id);
+                  setNewSessionTitle("");
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
+            >
+              Create
+            </button>
+          </div>
         </label>
 
         <label className="field">

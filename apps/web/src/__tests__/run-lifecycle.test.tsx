@@ -291,25 +291,41 @@ describe("RunView lifecycle", () => {
 
 describe("History", () => {
   it("renders runs and opens one on click", async () => {
-    fetchMock.mockImplementation(() =>
-      jsonResponse({
-        runs: [
-          {
-            id: "r9",
-            question: "old research",
-            pipeline_id: "fast_research",
-            session_id: "sess-abc",
-            status: "completed",
-            created_at: new Date().toISOString(),
-            finished_at: new Date().toISOString(),
-          },
-        ],
-      }),
-    );
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/v1/research" || url.startsWith("/api/v1/research?")) {
+        return jsonResponse({
+          runs: [
+            {
+              id: "r9",
+              question: "old research",
+              pipeline_id: "fast_research",
+              session_id: "sess-abc",
+              status: "completed",
+              created_at: new Date().toISOString(),
+              finished_at: new Date().toISOString(),
+            },
+          ],
+        });
+      }
+      if (url === "/api/v1/sessions") {
+        return jsonResponse({
+          sessions: [
+            {
+              id: "sess-abc",
+              title: "Archive session",
+              tags: [],
+              workspace_id: "default",
+              created_at: new Date().toISOString(),
+            },
+          ],
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
     const onOpen = vi.fn();
     render(<History onOpen={onOpen} />);
     const row = await screen.findByText("old research");
-    expect(screen.getByText(/sess-abc/)).toBeInTheDocument();
+    expect(screen.getAllByText("Archive session").length).toBeGreaterThan(0);
     const user = userEvent.setup();
     await user.click(row);
     expect(onOpen).toHaveBeenCalledWith("r9");
