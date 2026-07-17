@@ -42,6 +42,28 @@ class OpenAIEmbeddings:
         ).rstrip("/")
         self.timeout = timeout
 
+    def embed_one(self, text: str) -> list[float]:
+        """Sync single-text embed for SimilarityFn / knowledge-map paths."""
+        vectors = self._embed_sync([text])
+        return vectors[0] if vectors else []
+
+    def _embed_sync(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                f"{self.base_url}/embeddings",
+                json={"model": self.model, "input": texts},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        items = sorted(data.get("data", []), key=lambda d: d.get("index", 0))
+        return [list(item.get("embedding") or []) for item in items]
+
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
@@ -75,6 +97,16 @@ class OllamaEmbeddings:
             base_url or _env("OLLAMA_BASE_URL", default="http://localhost:11434")
         ).rstrip("/")
         self.timeout = timeout
+
+    def embed_one(self, text: str) -> list[float]:
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                f"{self.base_url}/api/embeddings",
+                json={"model": self.model, "prompt": text},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        return list(data.get("embedding") or [])
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -150,7 +182,10 @@ embedding_registry.register("hash", lambda m: HashEmbeddings(m))
 
 
 def resolve_default_embeddings() -> EmbeddingModel:
-    """Prefer OpenAI when keyed, else deterministic hash (offline-safe)."""
+    """Prefer OpenAI when keyed, else Ollama when base URL set, else hash."""
     if _env("OPENAI_API_KEY"):
         return OpenAIEmbeddings()
+    if _env("OLLAMA_BASE_URL") or _env("OLLAMA_EMBED_MODEL"):
+        model = _env("OLLAMA_EMBED_MODEL", default="nomic-embed-text")
+        return OllamaEmbeddings(model)
     return HashEmbeddings()

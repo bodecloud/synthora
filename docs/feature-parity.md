@@ -104,14 +104,12 @@ SerpAPI / Mojeek resolve workspace provider settings; academic
 ``citation_verify`` drops rejected sources before section writing; key-required
 engines without credentials are filtered and fail loud at run start.
 
-Still open (non-blocking polish): research-loop OpenAI/Ollama embeddings
-(documents already prefer OpenAI); multipart document upload; optional
-streamable-HTTP MCP server (REST shim exists).
+Still open (non-blocking polish): optional streamable-HTTP MCP server
+(REST shim at ``/api/v1/mcp/tools/*`` remains the supported surface).
 
-Also closed in this pass: URL page fetch for thin snippets, citation
-year/author bibliography lines, News subscription edit UI, and New Research
-advanced ``RunConfig`` controls (models, perspectives, discourse, autonomous
-cycles, warm_start / pure_rag / simulated_user / fetch_pages).
+Closed on ``feat/embed-upload-docs``: research-loop embeddings via
+``resolve_research_embeddings`` (OpenAI → Ollama → hash), multipart document
+upload (``.txt``/``.md``/``.pdf``/``.docx``), and architecture catalog sync.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —
 intentional product shape. Explicit non-goals remain below.

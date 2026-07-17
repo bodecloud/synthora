@@ -105,3 +105,23 @@ async def test_collection_engine_uses_query_embeddings():
     assert hits, "expected cosine hit without substring match"
     assert hits[0].engine == "collection"
     document_index.clear()
+
+
+def test_document_multipart_upload(docs_client):
+    client = docs_client
+    files = {"file": ("notes.md", b"# Hello\n\nquantum lattice surgery notes", "text/markdown")}
+    resp = client.post("/api/v1/documents/upload", files=files)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["title"] == "notes"
+    assert body["chunk_count"] >= 1
+    listed = client.get("/api/v1/documents").json()["documents"]
+    assert any(d["id"] == body["id"] for d in listed)
+
+
+def test_document_extract_rejects_unknown_type():
+    import pytest
+    from synthora.api.document_extract import extract_document_text
+
+    with pytest.raises(ValueError, match="unsupported"):
+        extract_document_text("x.bin", b"\x00\x01")

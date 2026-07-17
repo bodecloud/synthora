@@ -421,6 +421,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ title, content, url: url || null }),
     }),
+  uploadDocument: async (file: File, title?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (title?.trim()) form.append("title", title.trim());
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const resp = await fetch("/api/v1/documents/upload", {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(`${resp.status}: ${body}`);
+    }
+    return (await resp.json()) as DocumentSummary;
+  },
   deleteDocument: (id: string) =>
     request<{ deleted: boolean; id: string }>(`/api/v1/documents/${id}`, {
       method: "DELETE",

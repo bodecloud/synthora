@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from synthora.adapters.document_index import document_index
 from synthora.api.auth import current_identity
@@ -456,33 +456,37 @@ async def metrics_summary(
 # ---------------------------------------------------------------- documents (RAG)
 
 
-@extra_router.post("/api/v1/documents", status_code=201)
-async def create_document(
-    body: CreateDocumentRequest,
-    request: Request,
-    identity: dict = Depends(current_identity),
+async def _persist_document(
+    *,
+    db: Database,
+    workspace_id: str,
+    title: str,
+    content: str,
+    url: Optional[str] = None,
+    meta_extra: Optional[dict] = None,
 ) -> dict:
-    db = get_db(request)
-    workspace_id = identity["workspace_id"]
-    pieces = _chunk_text(body.content, 500)
+    pieces = _chunk_text(content, 500)
     embedder = _embedding_model()
     vectors = await embedder.embed(pieces) if pieces else []
+    meta = {"content": content, "chunk_count": len(pieces)}
+    if meta_extra:
+        meta.update(meta_extra)
     doc = Document(
         workspace_id=workspace_id,
-        title=body.title,
-        url=body.url,
-        content=body.content,
-        meta={"content": body.content, "chunk_count": len(pieces)},
+        title=title,
+        url=url,
+        content=content,
+        meta=meta,
     )
     chunks = [
         DocumentChunk(
             document_id=doc.id,
             workspace_id=workspace_id,
             chunk_index=i,
-            text=text,
+            text=piece,
             embedding=vectors[i] if i < len(vectors) else [],
         )
-        for i, text in enumerate(pieces)
+        for i, piece in enumerate(pieces)
     ]
     await DocumentRepository(db).create(doc, chunks)
     document_index.upsert_document(
@@ -510,6 +514,60 @@ async def create_document(
         "chunk_count": len(chunks),
         "created_at": doc.created_at.isoformat(),
     }
+
+
+@extra_router.post("/api/v1/documents", status_code=201)
+async def create_document(
+    body: CreateDocumentRequest,
+    request: Request,
+    identity: dict = Depends(current_identity),
+) -> dict:
+    return await _persist_document(
+        db=get_db(request),
+        workspace_id=identity["workspace_id"],
+        title=body.title,
+        content=body.content,
+        url=body.url,
+    )
+
+
+@extra_router.post("/api/v1/documents/upload", status_code=201)
+async def upload_document(
+    request: Request,
+    identity: dict = Depends(current_identity),
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+) -> dict:
+    """Multipart upload for .txt/.md/.pdf/.docx (and related text formats)."""
+    from pathlib import Path
+
+    from synthora.api.document_extract import extract_document_text
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="empty file")
+    if len(raw) > 8_000_000:
+        raise HTTPException(status_code=413, detail="file too large (max 8MB)")
+    filename = file.filename or "upload.txt"
+    try:
+        content = extract_document_text(filename, raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=422, detail=f"failed to extract text: {exc}"
+        ) from exc
+    if not content.strip():
+        raise HTTPException(status_code=422, detail="no extractable text in file")
+    doc_title = (title or Path(filename).stem or filename).strip()
+    return await _persist_document(
+        db=get_db(request),
+        workspace_id=identity["workspace_id"],
+        title=doc_title,
+        content=content,
+        url=f"upload://{filename}",
+        meta_extra={"source_filename": filename},
+    )
 
 
 @extra_router.get("/api/v1/documents")
