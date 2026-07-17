@@ -284,7 +284,8 @@ class RunExecutor:
                 run.status = RunStatus.CANCELLED
             except Exception as exc:
                 logger.exception("run %s failed", run.id)
-                run.error = f"{type(exc).__name__}: {exc}"
+                detail = str(exc).strip() or repr(exc)
+                run.error = f"{type(exc).__name__}: {detail}"
                 run.status = RunStatus.FAILED
             try:
                 await self.metrics.save(ctx.to_metrics())
