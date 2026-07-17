@@ -51,6 +51,9 @@ async def main() -> None:
 
     db = Database(database_url)
     await db.ensure_schema()
+    from synthora.orchestration.checkpoint import ensure_checkpointer
+
+    await ensure_checkpointer()
     try:
         from synthora.adapters.document_index import warm_document_index_from_db
 

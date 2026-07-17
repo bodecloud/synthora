@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from synthora.orchestration.checkpoint import (
     _normalize_postgres_url,
+    ensure_checkpointer,
     get_checkpointer,
     reset_checkpointer,
 )
@@ -27,12 +28,22 @@ def test_memory_backend_default(monkeypatch):
     reset_checkpointer()
 
 
-def test_postgres_backend_requires_url(monkeypatch):
+def test_postgres_get_before_ensure_raises(monkeypatch):
+    monkeypatch.setenv("SYNTHORA_CHECKPOINT_BACKEND", "postgres")
+    monkeypatch.setenv("SYNTHORA_CHECKPOINT_URL", "postgresql://u:p@localhost/db")
+    reset_checkpointer()
+    with pytest.raises(RuntimeError, match="ensure_checkpointer"):
+        get_checkpointer()
+    reset_checkpointer()
+
+
+@pytest.mark.asyncio
+async def test_postgres_backend_requires_url(monkeypatch):
     monkeypatch.setenv("SYNTHORA_CHECKPOINT_BACKEND", "postgres")
     monkeypatch.delenv("SYNTHORA_CHECKPOINT_URL", raising=False)
     monkeypatch.delenv("SYNTHORA_DATABASE_URL", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     reset_checkpointer()
     with pytest.raises(RuntimeError, match="CHECKPOINT_URL|DATABASE_URL"):
-        get_checkpointer()
+        await ensure_checkpointer()
     reset_checkpointer()
