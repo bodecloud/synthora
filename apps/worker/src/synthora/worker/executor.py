@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from langgraph.types import Command
 from synthora.adapters import llm_registry, search_engine_registry, strategy_registry
+from synthora.adapters.model_resolver import resolve_chat_model, resolve_run_config
 from synthora.core.events import ProgressEvent, RunEventType
 from synthora.core.models import (
     Artifact,
@@ -86,7 +87,8 @@ class RunExecutor:
         self.metrics = MetricsRepository(db)
 
     def build_context(self, run: ResearchRun) -> ResearchContext:
-        cfg = run.config
+        cfg = resolve_run_config(run.config)
+        resolved_models: dict[str, str] = {}
 
         async def sink(event: ProgressEvent) -> None:
             if await self.queue.is_cancelled(run.id):
@@ -120,16 +122,27 @@ class RunExecutor:
         ctx = ResearchContext(
             run_id=run.id,
             config=cfg,
-            planner=self._resolve_model(cfg.planner_model),
-            researcher=self._resolve_model(cfg.researcher_model),
-            compressor=self._resolve_model(cfg.compressor_model),
-            writer=self._resolve_model(cfg.writer_model),
-            critic=self._resolve_model(cfg.critic_model),
+            planner=resolve_chat_model(
+                cfg.planner_model, role="planner", resolved_models=resolved_models
+            ),
+            researcher=resolve_chat_model(
+                cfg.researcher_model, role="researcher", resolved_models=resolved_models
+            ),
+            compressor=resolve_chat_model(
+                cfg.compressor_model, role="compressor", resolved_models=resolved_models
+            ),
+            writer=resolve_chat_model(
+                cfg.writer_model, role="writer", resolved_models=resolved_models
+            ),
+            critic=resolve_chat_model(
+                cfg.critic_model, role="critic", resolved_models=resolved_models
+            ),
             engines=engines,
             strategy=self._resolve_strategy(cfg.search_strategy),
             event_sink=sink,
             cancel_check=cancel_check,
             drain_steering=drain_steering,
+            resolved_models=resolved_models,
         )
         ctx.wrap_providers()
         return ctx
@@ -209,6 +222,36 @@ class RunExecutor:
         ws_token = set_workspace_id(run.workspace_id or "default")
         try:
             ctx = ctx or self.build_context(run)
+            if ctx.resolved_models or any(
+                getattr(m, "last_used_model", None)
+                for m in (
+                    ctx.planner,
+                    ctx.researcher,
+                    ctx.compressor,
+                    ctx.writer,
+                    ctx.critic,
+                )
+            ):
+                for role, model in (
+                    ("planner", ctx.planner),
+                    ("researcher", ctx.researcher),
+                    ("compressor", ctx.compressor),
+                    ("writer", ctx.writer),
+                    ("critic", ctx.critic),
+                ):
+                    used = getattr(model, "last_used_model", None) or getattr(
+                        model, "primary", None
+                    )
+                    if used and role not in ctx.resolved_models:
+                        ctx.resolved_models[role] = str(used)
+                await self.events.append(
+                    ProgressEvent(
+                        run_id=run.id,
+                        type=RunEventType.STATUS,
+                        message="Model stack resolved",
+                        payload={"resolved_models": dict(ctx.resolved_models)},
+                    )
+                )
             if not ctx.mcp_tools and (run.config.extra or {}).get("mcp"):
                 from synthora.adapters.mcp_client import load_mcp_tools
 

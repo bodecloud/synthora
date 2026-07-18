@@ -28,13 +28,16 @@ PERSONAS = json.dumps(
 
 
 def test_registry_lists_all_pipelines():
-    ids = [s.id for s in pipeline_registry.list_specs()]
-    assert ids == [
-        "academic_research",
-        "autonomous_research",
-        "deep_research",
-        "fast_research",
-    ]
+    ids = sorted(s.id for s in pipeline_registry.list_specs())
+    assert ids == sorted(
+        [
+            "academic_research",
+            "autonomous_research",
+            "deep_research",
+            "fast_research",
+            "open_deep_research",
+        ]
+    )
     with pytest.raises(KeyError):
         pipeline_registry.get("nope")
 
@@ -42,6 +45,34 @@ def test_registry_lists_all_pipelines():
 def test_all_pipelines_compile():
     for spec in pipeline_registry.list_specs():
         assert spec.builder() is not None
+
+
+@pytest.mark.asyncio
+async def test_open_deep_research_golden_path():
+    planner = FakeChatModel(
+        responses=[
+            json.dumps({"action": "conduct_research", "topics": ["alpha"]}),
+            json.dumps({"action": "research_complete", "reason": "done"}),
+            "# Final report\n\nFindings [1]",
+        ]
+    )
+    researcher = FakeChatModel(
+        responses=[
+            json.dumps({"action": "search", "query": "alpha", "reflection": "go"}),
+            json.dumps({"action": "complete", "reflection": "done"}),
+        ]
+    )
+    compressor = FakeChatModel(default="compressed")
+    ctx = make_ctx(
+        planner=planner,
+        researcher=researcher,
+        compressor=compressor,
+        config=RunConfig(max_react_tool_calls=2, max_researcher_iterations=2),
+    )
+    graph = pipeline_registry.build("open_deep_research")
+    result = await graph.ainvoke({"question": "What is X?"}, config=graph_config(ctx))
+    assert result.get("report")
+    assert "perspectives" not in result or not result.get("perspectives")
 
 
 async def test_fast_research_golden_path():

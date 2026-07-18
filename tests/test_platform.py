@@ -151,7 +151,9 @@ def make_executor(app) -> RunExecutor:
 def test_health_and_ready(platform):
     client, _ = platform
     assert client.get("/health").json() == {"status": "ok"}
-    assert client.get("/ready").json() == {"status": "ready"}
+    ready = client.get("/ready").json()
+    assert ready["status"] in ("ready", "degraded")
+    assert "llm" in ready
 
 
 def test_catalog_endpoints(platform):
@@ -160,6 +162,7 @@ def test_catalog_endpoints(platform):
     assert {p["id"] for p in pipelines} == {
         "fast_research",
         "deep_research",
+        "open_deep_research",
         "academic_research",
         "autonomous_research",
     }

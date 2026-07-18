@@ -114,6 +114,29 @@ def build_deep_research():
 
 
 # ---------------------------------------------------------------------------
+# open_deep_research: ODR-only supervisor loop (no STORM synthesis stages)
+# ---------------------------------------------------------------------------
+
+
+def build_open_deep_research():
+    from synthora.orchestration.graphs import run_supervisor_phase
+
+    g = StateGraph(AgentState)
+    g.add_node("clarify", clarify_with_user)
+    g.add_node("clarify_wait", clarify_interrupt)
+    g.add_node("brief", write_research_brief)
+    g.add_node("research", run_supervisor_phase)
+    g.add_node("report", final_report_generation)
+    g.add_edge(START, "clarify")
+    g.add_edge("clarify", "clarify_wait")
+    g.add_edge("clarify_wait", "brief")
+    g.add_edge("brief", "research")
+    g.add_edge("research", "report")
+    g.add_edge("report", END)
+    return g.compile(checkpointer=get_checkpointer())
+
+
+# ---------------------------------------------------------------------------
 # academic_research: lit search -> citation verify -> synthesis -> review
 # ---------------------------------------------------------------------------
 
@@ -256,6 +279,17 @@ pipeline_registry.register(
         ),
         builder=build_deep_research,
         tags=["flagship", "storm", "odr"],
+    )
+)
+pipeline_registry.register(
+    PipelineSpec(
+        id="open_deep_research",
+        name="Open Deep Research",
+        description=(
+            "ODR-equivalent: clarify -> brief -> supervisor parallel researchers -> report"
+        ),
+        builder=build_open_deep_research,
+        tags=["odr", "langgraph"],
     )
 )
 pipeline_registry.register(

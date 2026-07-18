@@ -16,6 +16,13 @@ def _fresh_checkpointer():
     reset_checkpointer()
 
 
+@pytest.fixture(autouse=True)
+def _test_model_profile(monkeypatch):
+    """Use fake LLMs when RunConfig defaults to auto."""
+    monkeypatch.setenv("SYNTHORA_MODEL_PROFILE", "test")
+    yield
+
+
 @pytest.fixture
 async def db() -> Database:
     database = Database("sqlite+aiosqlite:///:memory:")

@@ -1367,10 +1367,19 @@ class PubChemEngine:
         return out
 
 
-search_engine_registry.register("gutenberg", GutenbergEngine)
-search_engine_registry.register("openlibrary", OpenLibraryEngine)
-search_engine_registry.register("zenodo", ZenodoEngine)
-search_engine_registry.register("wikinews", WikinewsEngine)
-search_engine_registry.register("serpapi", SerpApiEngine)
-search_engine_registry.register("mojeek", MojeekEngine)
-search_engine_registry.register("pubchem", PubChemEngine)
+def _register_extended_engines() -> None:
+    search_engine_registry.register("gutenberg", GutenbergEngine)
+    search_engine_registry.register("openlibrary", OpenLibraryEngine)
+    search_engine_registry.register("zenodo", ZenodoEngine)
+    search_engine_registry.register("wikinews", WikinewsEngine)
+    search_engine_registry.register("serpapi", SerpApiEngine)
+    search_engine_registry.register("mojeek", MojeekEngine)
+    search_engine_registry.register("pubchem", PubChemEngine)
+
+
+if os.environ.get("SYNTHORA_EXTENDED_ENGINES", "1").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+):
+    _register_extended_engines()

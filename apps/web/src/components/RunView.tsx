@@ -77,6 +77,9 @@ export function RunView({
   }, [refresh, finished, statusTick]);
 
   const awaitingInput = run?.status === "awaiting_input";
+  const resolvedModels = events.find(
+    (e) => e.payload?.resolved_models,
+  )?.payload?.resolved_models as Record<string, string> | undefined;
   const clarifyQuestion =
     [...events]
       .reverse()
@@ -161,6 +164,14 @@ export function RunView({
           </p>
         )}
         {run?.brief && <p>{run.brief}</p>}
+        {resolvedModels && Object.keys(resolvedModels).length > 0 && (
+          <p className="hint">
+            Models:{" "}
+            {Object.entries(resolvedModels)
+              .map(([role, model]) => `${role}=${model}`)
+              .join(", ")}
+          </p>
+        )}
         {run?.error && <p className="error-text">{run.error}</p>}
         {error && <p className="error-text">{error}</p>}
 

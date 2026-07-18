@@ -10,6 +10,12 @@ from synthora.adapters.embeddings import (
     resolve_default_embeddings,
 )
 from synthora.adapters.llm import LLMProviderRegistry, llm_registry
+from synthora.adapters.model_resolver import (
+    get_model_profile,
+    probe_llm_readiness,
+    resolve_chat_model,
+    resolve_run_config,
+)
 from synthora.adapters.mcp_client import MCPTool, load_mcp_tools
 from synthora.adapters.page_fetch import fetch_page_text, is_fetchable_url
 from synthora.adapters.search_engines import (
@@ -34,6 +40,10 @@ __all__ = [
     "document_index",
     "embedding_registry",
     "llm_registry",
+    "get_model_profile",
+    "resolve_chat_model",
+    "resolve_run_config",
+    "probe_llm_readiness",
     "load_mcp_tools",
     "engine_is_usable",
     "search_engine_registry",

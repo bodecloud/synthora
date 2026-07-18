@@ -24,6 +24,17 @@ discourse → knowledge_map → outline → section_write → critic → report`
   and writes cited sections.
 - A critic reviews the draft; the final writer addresses the critique.
 
+## open_deep_research (ODR-equivalent)
+
+`clarify? → brief → supervisor ⇄ parallel researchers → compress → report`
+
+LangGraph Open Deep Research shape without STORM synthesis stages (no
+perspectives, discourse, knowledge map, outline, section write, or critic).
+Use when you want the upstream ODR supervisor loop only; `deep_research`
+remains the Synthora flagship (ODR + STORM).
+
+Registered in `langgraph.json` and exposed via API/Studio as the fifth pipeline.
+
 ## academic_research
 
 `brief → lit_search → citation_verify → outline → section_write →
@@ -47,7 +58,7 @@ until gaps close or the cycle budget is exhausted.
 
 | Knob | Default | Applies to |
 |---|---|---|
-| `planner/researcher/compressor/writer/critic_model` | gpt-4o-mini / gpt-4o | all |
+| `planner/researcher/compressor/writer/critic_model` | `auto` (resolved via profile) | all |
 | `search_engines`, `search_strategy` | `["searxng"]`, `source_based` | all |
 | `allow_clarification` | false | fast, deep |
 | `max_concurrent_research_units` | 5 | deep, autonomous |

@@ -12,6 +12,7 @@ Next-generation deep research platform unifying three lineages:
 |---|---|
 | `fast_research` | plan → search → summarize → answer |
 | `deep_research` | plan → parallel research → perspectives → discourse → knowledge map → outline → cited sections → criticism → report |
+| `open_deep_research` | plan → parallel research (supervisor loop only) → report |
 | `academic_research` | literature search → citation verification → outline → synthesis → peer review → bibliography |
 | `autonomous_research` | hypothesize → investigate → gap discovery → new research paths → knowledge base update → repeat (bounded) |
 
@@ -48,18 +49,33 @@ LangGraph Studio: `uv run langgraph dev` (uses `langgraph.json`).
 docker compose up -d
 ```
 
-Brings up: API (`:8000`), worker, web UI (`:3000`), Postgres, Redis, SearXNG. Optional local LLM:
+Brings up: API (`:8000`), worker, web UI (`:3000`), Postgres, Redis, SearXNG.
+Default model profile is **`auto`** — resolves LLM roles from env keys,
+Ollama, or free fallback chains ([llm_fallbacks](https://github.com/bodecloud/llm_fallbacks)).
+
+Optional local LLM (Ollama profile):
 
 ```bash
 docker compose --profile ollama -f docker-compose.yml -f docker-compose.ollama.yml up -d
 ```
 
-The overlay sets `OLLAMA_BASE_URL=http://ollama:11434` on API/worker. Default embeddings use `SYNTHORA_EMBEDDINGS=hash` (no Ollama required).
+Local-first preset (Ollama + `SYNTHORA_MODEL_PROFILE=local`):
 
-Key environment variables (see `.env.example`): `SYNTHORA_DATABASE_URL`, `SYNTHORA_REDIS_URL`, `SYNTHORA_AUTH_MODE` (`none`|`session`), `OPENAI_API_KEY` / `OPENAI_BASE_URL`, `TAVILY_API_KEY`, `SEARXNG_URL`.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile ollama up -d
+```
+
+The Ollama overlay sets `OLLAMA_BASE_URL=http://ollama:11434` on API/worker.
+Embeddings follow profile (`hash` by default; Ollama when local profile active).
+
+Key environment variables (see `.env.example`): `SYNTHORA_MODEL_PROFILE`
+(`auto`|`local`|`cloud`|`free`), `SYNTHORA_DATABASE_URL`, `SYNTHORA_REDIS_URL`,
+`SYNTHORA_AUTH_MODE` (`none`|`session`), `OPENAI_API_KEY` / `OPENAI_BASE_URL`,
+`TAVILY_API_KEY`, `SEARXNG_URL`, `SYNTHORA_EXTENDED_ENGINES`.
 
 ## Docs
 
 - [docs/architecture.md](docs/architecture.md) — layer contracts and data flow
 - [docs/pipelines.md](docs/pipelines.md) — pipeline graph designs
 - [docs/feature-parity.md](docs/feature-parity.md) — parity matrix vs the three source projects
+- [docs/eval-storm.md](docs/eval-storm.md) — STORM FreshWiki evaluation harness

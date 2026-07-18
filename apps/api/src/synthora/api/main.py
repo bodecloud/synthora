@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from synthora.adapters import llm_registry, search_engine_registry, strategy_registry
+from synthora.adapters.model_resolver import probe_llm_readiness
 from synthora.api.auth import (
     current_identity,
     hash_password,
@@ -154,7 +155,18 @@ async def ready() -> dict:
             pass
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"status": "ready"}
+    llm_probe = await probe_llm_readiness()
+    search_ok = "searxng" in search_engine_registry.engines()
+    body = {
+        "status": "ready",
+        "llm": llm_probe.get("llm", "unknown"),
+        "search": "ok" if search_ok else "degraded",
+        "model_profile": llm_probe.get("profile"),
+        "sample_models": llm_probe.get("sample_models", []),
+    }
+    if llm_probe.get("llm") == "unavailable":
+        body["status"] = "degraded"
+    return body
 
 
 # ---------------------------------------------------------------- auth

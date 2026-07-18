@@ -66,11 +66,11 @@ class RunConfig(BaseModel):
 
     pipeline_id: str = "deep_research"
     # model roles (R-ODR-5)
-    planner_model: str = "openai:gpt-4o-mini"
-    researcher_model: str = "openai:gpt-4o-mini"
-    compressor_model: str = "openai:gpt-4o-mini"
-    writer_model: str = "openai:gpt-4o"
-    critic_model: str = "openai:gpt-4o-mini"
+    planner_model: str = "auto"
+    researcher_model: str = "auto"
+    compressor_model: str = "auto"
+    writer_model: str = "auto"
+    critic_model: str = "auto"
     # search
     search_engines: list[str] = Field(default_factory=lambda: ["searxng"])
     search_strategy: str = "source_based"

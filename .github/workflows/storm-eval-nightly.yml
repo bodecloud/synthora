@@ -1,0 +1,44 @@
+name: STORM FreshWiki eval (nightly)
+
+on:
+  schedule:
+    - cron: "0 8 * * 2"
+  workflow_dispatch:
+
+jobs:
+  storm-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - name: Sync workspace
+        run: uv sync
+      - name: Metric unit tests
+        run: uv run pytest tests/test_storm_eval_metrics.py -q
+      - name: Start compose stack
+        env:
+          SYNTHORA_AUTH_MODE: none
+          SYNTHORA_SECRET_KEY: ci-storm-eval-secret-key-not-prod-32
+          SYNTHORA_MODEL_PROFILE: auto
+          SYNTHORA_CHECKPOINT_BACKEND: postgres
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SYNTHORA_EMBEDDINGS: hash
+        run: docker compose up -d --build
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 90); do
+            curl -fsS http://localhost:8000/health && break
+            sleep 2
+          done
+      - name: Download FreshWiki subset
+        run: uv run pip install datasets && uv run python scripts/storm_eval/download_freshwiki.py --max-topics 5
+      - name: Run FreshWiki batch (5 topics)
+        env:
+          SYNTHORA_API_URL: http://localhost:8000
+        run: uv run python scripts/storm_eval/run_freshwiki.py --max-topics 5
+      - name: Tear down
+        if: always()
+        run: docker compose down

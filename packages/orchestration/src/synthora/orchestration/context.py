@@ -95,6 +95,8 @@ class ResearchContext:
     prompt_chars: int = 0
     completion_chars: int = 0
     search_calls: int = 0
+    # models actually used when auto/fallback resolution applies
+    resolved_models: dict[str, str] = field(default_factory=dict)
 
     async def cooperative_check(self) -> None:
         """Cancel + drain steering at provider call boundaries."""

@@ -1,0 +1,16 @@
+# Local-first overlay: Ollama models + profile without manual RunConfig overrides.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --profile ollama up -d
+services:
+  api:
+    environment:
+      SYNTHORA_MODEL_PROFILE: local
+      SYNTHORA_OLLAMA_MODEL: ${SYNTHORA_OLLAMA_MODEL:-llama3.1}
+      OLLAMA_BASE_URL: http://ollama:11434
+      SYNTHORA_EMBEDDINGS: ollama
+  worker:
+    environment:
+      SYNTHORA_MODEL_PROFILE: local
+      SYNTHORA_OLLAMA_MODEL: ${SYNTHORA_OLLAMA_MODEL:-llama3.1}
+      OLLAMA_BASE_URL: http://ollama:11434
+      SYNTHORA_EMBEDDINGS: ollama

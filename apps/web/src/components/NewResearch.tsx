@@ -245,13 +245,16 @@ export function NewResearch({
       </label>
 
       <details className="model-details">
-        <summary>Optional model overrides</summary>
+        <summary>Advanced: model overrides (default: auto)</summary>
+        <p className="hint">
+          Leave blank to use the server model profile (auto/local/cloud/free).
+        </p>
         <div className="config-grid">
           <label className="field">
             Planner model
             <input
               type="text"
-              placeholder="e.g. openai:gpt-4o-mini"
+              placeholder="auto"
               value={plannerModel}
               onChange={(e) => setPlannerModel(e.target.value)}
               aria-label="planner model"
@@ -261,7 +264,7 @@ export function NewResearch({
             Researcher model
             <input
               type="text"
-              placeholder="e.g. openai:gpt-4o-mini"
+              placeholder="auto"
               value={researcherModel}
               onChange={(e) => setResearcherModel(e.target.value)}
               aria-label="researcher model"
@@ -271,7 +274,7 @@ export function NewResearch({
             Writer model
             <input
               type="text"
-              placeholder="e.g. openai:gpt-4o"
+              placeholder="auto"
               value={writerModel}
               onChange={(e) => setWriterModel(e.target.value)}
               aria-label="writer model"
@@ -281,7 +284,7 @@ export function NewResearch({
             Compressor model
             <input
               type="text"
-              placeholder="e.g. openai:gpt-4o-mini"
+              placeholder="auto"
               value={compressorModel}
               onChange={(e) => setCompressorModel(e.target.value)}
               aria-label="compressor model"
@@ -291,7 +294,7 @@ export function NewResearch({
             Critic model
             <input
               type="text"
-              placeholder="e.g. openai:gpt-4o-mini"
+              placeholder="auto"
               value={criticModel}
               onChange={(e) => setCriticModel(e.target.value)}
               aria-label="critic model"

@@ -1,7 +1,8 @@
 # Synthora parity audit checklist
 
 Living checklist against Open Deep Research, STORM/Co-STORM, and Local Deep
-Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
+Research. Last verified after Unified Best-Parts Platform (model auto profile,
+ODR pipeline, STORM eval harness).
 
 ## Open Deep Research
 
@@ -19,6 +20,7 @@ Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
 | MCP tools into researchers | done |
 | Native/provider web search coverage | done |
 | Studio / langgraph.json | done |
+| `open_deep_research` ODR-only pipeline | done |
 
 ## STORM / Co-STORM
 
@@ -33,6 +35,7 @@ Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
 | Wikipedia TOC mining | done |
 | Embedding similarity | done |
 | Discourse persistence | done |
+| FreshWiki eval harness (metrics + batch runner) | done |
 
 ## Local Deep Research
 
@@ -42,6 +45,9 @@ Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
 | Strategies (5) | done |
 | Search engines (catalog) | done |
 | LLM providers (catalog) | done |
+| Model profile auto + llm_fallbacks routing | done |
+| `/ready` LLM readiness probe | done |
+| Local compose preset (`docker-compose.local.yml`) | done |
 | Document library + RAG | done |
 | Settings persistence | done |
 | Export md/html/pdf | done |
@@ -74,6 +80,8 @@ Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
 | Live compose smoke (`scripts/smoke.sh`: research, export, upload, MCP list) | done |
 | Route parity CI guard (`tests/test_api_route_parity.py`) | done (PR #15) |
 | Playwright UI e2e | API-mocked (CI speed); live-stack browser gate (nightly) |
+| STORM eval nightly (5-topic FreshWiki subset) | done |
+| Extended search engines tier flag | done (`SYNTHORA_EXTENDED_ENGINES`) |
 
 ## Residual gaps (deliberate, not silent)
 
@@ -85,5 +93,5 @@ No in-scope product/API/worker gaps. Inbound MCP exposes four agent tools
 - Vendoring upstream source trees as disconnected apps
 - Per-user SQLCipher (shared Postgres + optional auth by design)
 - STORM Streamlit demo
-- Paper eval dataset construction pipelines
+- `knowledge_storm` in product runtime (eval harness only)
 - Full CommonMark/GFM export (Synthora report subset only)

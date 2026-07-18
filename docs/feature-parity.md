@@ -23,6 +23,8 @@ See also [parity-audit.md](parity-audit.md).
 | Compress-before-return + token-limit retry | ✅ | `compress_research` + `token_limits.py` |
 | Final report + token-limit retry | ✅ | `final_report_generation` |
 | Role-split models (5 roles) | ✅ | `RunConfig` + `ResearchContext` |
+| **`auto` model profile + llm_fallbacks chains** | ✅ | `adapters/model_resolver.py`, `fallback_llm.py` |
+| Resolved model transparency (UI + events) | ✅ | `ResearchContext.resolved_models`, RunView |
 | Runtime config: env / configurable / API payload | ✅ | `studio.py`, `RunConfig`, API |
 | `langgraph.json` + Studio surface | ✅ | `langgraph.json` |
 | Page content summarization | ✅ | `adapters/summarize.py` |
@@ -46,6 +48,7 @@ See also [parity-audit.md](parity-audit.md).
 | Embedding-based similarity | ✅ | Hash/OpenAI/Ollama embeddings |
 | Wikipedia-TOC perspective mining | ✅ | `mine_from_wikipedia_toc` |
 | PureRAG / warm-start / simulated user | ✅ | `discourse.py` |
+| **FreshWiki eval harness (outline + article metrics)** | ✅ | `eval/storm/`, `scripts/storm_eval/` |
 
 ## Local Deep Research (platform)
 
@@ -58,7 +61,10 @@ See also [parity-audit.md](parity-audit.md).
 | User management + optional auth + web login | ✅ | JWT + Login UI |
 | Search strategy abstraction (5 strategies + aliases) | ✅ | `strategy_registry` |
 | Search engine abstraction (full catalog) | ✅ | 29 registered engines |
-| LLM provider abstraction + think-tag handling | ✅ | 11 providers |
+| LLM provider abstraction + think-tag handling | ✅ | 11 providers + LiteLLM fallbacks |
+| **`SYNTHORA_MODEL_PROFILE` (auto/local/cloud/free)** | ✅ | compose defaults + `model_resolver.py` |
+| `/ready` LLM + search probes | ✅ | `probe_llm_readiness()` in API |
+| Local compose preset (`docker-compose.local.yml`) | ✅ | Ollama-first profile overlay |
 | Research history + export md/html/pdf | ✅ | API + web buttons; structured HTML/PDF export |
 | Docker Compose self-host | ✅ | `docker-compose.yml` |
 | Python SDK | ✅ | `packages/sdk` — sync + async clients, WebSocket events, full REST mirror |
@@ -91,8 +97,16 @@ Verified by `tests/test_isolation.py`.
 |---|---|
 | `fast_research` | ✅ |
 | `deep_research` | ✅ |
+| **`open_deep_research` (ODR-only supervisor loop)** | ✅ |
 | `academic_research` | ✅ |
 | `autonomous_research` | ✅ |
+
+## Search engine tiers
+
+| Tier | Engines | Gate |
+|---|---|---|
+| **Core** | searxng, collection, arxiv, duckduckgo, wikipedia, … | always registered |
+| **Extended** | gutenberg, openlibrary, zenodo, wikinews, serpapi, mojeek, pubchem | `SYNTHORA_EXTENDED_ENGINES=1` (default on) |
 
 ## Residual gaps (known)
 
@@ -151,6 +165,11 @@ every ``/api/v1`` REST path appears in sync SDK, async SDK, and web ``api.ts``;
 compose smoke probes MCP REST ``tools/list``; nightly live-stack Playwright
 workflow added.
 
+Closed on **Unified Best-Parts Platform**: ``SYNTHORA_MODEL_PROFILE=auto``
+defaults, ``llm-fallbacks`` git dep + ``FallbackChatModel``, ``open_deep_research``
+pipeline, LDR compose local preset + ``/ready`` LLM probes, STORM FreshWiki eval
+harness, extended search engine tier flag.
+
 No known functional gaps remain beyond explicit non-goals below.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —
@@ -161,4 +180,5 @@ intentional product shape. Explicit non-goals remain below.
 - Vendoring upstream trees as disconnected apps
 - Per-user SQLCipher (architecture choice: shared Postgres)
 - STORM Streamlit demo (React UI is the product surface)
-- Paper-only eval datasets on backup branches (FreshWiki construction)
+- Importing `knowledge_storm` into product runtime (eval scripts only)
+- ODR Deep Research Bench / LangSmith eval harness (future track)
