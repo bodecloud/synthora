@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from typing import Any, Optional
 
 import httpx
@@ -120,6 +121,25 @@ class SynthoraClient:
         )
         suffix = f"?token={self.token}" if self.token else ""
         return f"{ws_base}/api/v1/research/{run_id}/events/ws{suffix}"
+
+    def iter_run_events(self, run_id: str) -> Iterator[dict]:
+        """Yield live run events over WebSocket (requires a reachable server)."""
+        import json
+
+        from websockets.exceptions import ConnectionClosed
+        from websockets.sync.client import connect
+
+        url = self.events_ws_url(run_id)
+        headers: list[tuple[str, str]] = []
+        if self.token:
+            headers.append(("Authorization", f"Bearer {self.token}"))
+        with connect(url, additional_headers=headers) as ws:
+            while True:
+                try:
+                    raw = ws.recv()
+                except ConnectionClosed:
+                    break
+                yield json.loads(raw)
 
     def download_export(self, run_id: str, fmt: str = "markdown") -> bytes:
         """Download export bytes with auth (session mode safe)."""
