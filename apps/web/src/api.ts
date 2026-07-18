@@ -132,6 +132,9 @@ export interface ResearchConfig {
   num_perspectives?: number;
   max_discourse_turns?: number;
   max_autonomous_cycles?: number;
+  max_concurrent_research_units?: number;
+  max_researcher_iterations?: number;
+  max_react_tool_calls?: number;
   extra?: Record<string, unknown>;
   [key: string]: unknown;
 }

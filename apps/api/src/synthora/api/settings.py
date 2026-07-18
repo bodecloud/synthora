@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     allow_registrations: bool = True
     max_concurrent_researches: int = 3
     cors_origins: str = "*"
+    mcp_dns_rebinding_protection: bool = False
+    mcp_allowed_hosts: str = ""  # comma-separated Host patterns, e.g. localhost:*,api.example.com:*
+    mcp_allowed_origins: str = ""  # comma-separated Origin patterns when rebinding protection is on
 
     def assert_secure_for_auth(self) -> None:
         """Refuse to boot session auth with a forgeable default JWT secret."""

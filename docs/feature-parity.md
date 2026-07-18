@@ -64,7 +64,7 @@ See also [parity-audit.md](parity-audit.md).
 | Python SDK | ✅ | `packages/sdk` |
 | Document library + RAG (`collection` engine) | ✅ | documents API + `document_index` |
 | Provider settings persistence | ✅ | `/api/v1/settings` + Settings UI; resolvers prefer workspace overlay then env; GET responses redact secrets |
-| MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` REST + `/mcp` streamable HTTP |
+| MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` REST + `/mcp` streamable HTTP; optional ``config`` on ``start_research`` |
 | News / subscriptions | ✅ | `/api/v1/news/*` + worker poller |
 | Metrics / usage tracking | ✅ | `RunMetrics` + API |
 | Follow-up / chat research | ✅ | `/followup`, `/chat` + web views |
@@ -81,6 +81,7 @@ Verified by `tests/test_isolation.py`.
 | RAG `collection` engine scoped to caller workspace | ✅ | `adapters/workspace_context.py` contextvar; worker sets it per run |
 | WebSocket auth (token query param or header; 4401/4403/4404 closes) | ✅ | `events_ws` in `apps/api/main.py`; web client appends `?token=` |
 | MCP outbound SSRF guard (allowlist for remote hosts) | ✅ | `validate_mcp_url()` in `adapters/mcp_client.py` + `SYNTHORA_MCP_ALLOWLIST` |
+| MCP inbound DNS rebinding protection (optional) | ✅ | `SYNTHORA_MCP_DNS_REBINDING_PROTECTION` + allowed host/origin lists on `/mcp` |
 | Insecure secret-key boot refusal (session auth) | ✅ | `settings.assert_secure_for_auth()` at lifespan |
 | Durable Postgres LangGraph checkpointer (cross-worker resume) | ✅ | `orchestration/checkpoint.py` + `psycopg[binary]`; compose default `SYNTHORA_CHECKPOINT_BACKEND=postgres`; smoke asserts `checkpoint_*` tables |
 
@@ -111,6 +112,13 @@ upload (``.txt``/``.md``/``.pdf``/``.docx``), and architecture catalog sync.
 Closed on ``feat/mcp-streamable-http``: official MCP streamable HTTP transport
 at ``/mcp`` (same four tools as the REST shim), with shared execution in
 ``mcp_tools.py`` and session manager wired into the API lifespan.
+
+Closed on ``feat/final-parity-surface``: SDK ``upload_document`` multipart
+upload; MCP ``start_research`` accepts optional ``config`` on REST + streamable
+tools; env-driven MCP DNS rebinding protection
+(``SYNTHORA_MCP_DNS_REBINDING_PROTECTION``); web RunConfig exposes
+``max_concurrent_research_units``, ``max_researcher_iterations``, and
+``max_react_tool_calls``; SDK/MCP/isolation regression tests.
 
 No known functional gaps remain beyond explicit non-goals below.
 

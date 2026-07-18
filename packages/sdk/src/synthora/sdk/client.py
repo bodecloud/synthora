@@ -168,6 +168,34 @@ class SynthoraClient:
             body["url"] = url
         return self._post("/api/v1/documents", body)
 
+    def upload_document(
+        self,
+        file: str | bytes,
+        *,
+        filename: str = "upload.txt",
+        title: Optional[str] = None,
+    ) -> dict:
+        """Upload a file via multipart ``POST /api/v1/documents/upload``."""
+        if isinstance(file, str):
+            path = file
+            with open(path, "rb") as handle:
+                payload = handle.read()
+            filename = filename or path.rsplit("/", 1)[-1]
+        else:
+            payload = file
+        files = {"file": (filename, payload, "application/octet-stream")}
+        data: dict[str, str] = {}
+        if title:
+            data["title"] = title
+        resp = self._client.post(
+            "/api/v1/documents/upload",
+            files=files,
+            data=data or None,
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     def delete_document(self, document_id: str) -> dict:
         return self._delete(f"/api/v1/documents/{document_id}")
 

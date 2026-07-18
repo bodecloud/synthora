@@ -39,6 +39,10 @@ MCP_TOOL_SPECS: list[dict[str, Any]] = [
             "properties": {
                 "question": {"type": "string"},
                 "pipeline_id": {"type": "string"},
+                "config": {
+                    "type": "object",
+                    "description": "Optional RunConfig fields (engines, models, limits, extra)",
+                },
             },
             "required": ["question"],
         },

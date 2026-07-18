@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from synthora.adapters.document_index import document_index
 from synthora.adapters.mcp_client import validate_mcp_url
@@ -158,6 +160,22 @@ def test_session_auth_workspace_and_ws_isolation(platform):
                 f"/api/v1/research/{run_id}/events/ws?token={bob_token}"
             ) as ws:
                 ws.receive_json()
+
+        # MCP REST shim must not leak Alice's run to Bob.
+        bob_mcp = client.post(
+            "/api/v1/mcp/tools/call",
+            headers=bob_h,
+            json={"name": "get_run_status", "arguments": {"run_id": run_id}},
+        )
+        assert bob_mcp.status_code == 404
+
+        alice_mcp = client.post(
+            "/api/v1/mcp/tools/call",
+            headers=alice_h,
+            json={"name": "get_run_status", "arguments": {"run_id": run_id}},
+        )
+        assert alice_mcp.status_code == 200
+        assert json.loads(alice_mcp.json()["content"])["run_id"] == run_id
     finally:
         settings.auth_mode = "none"
         settings.secret_key = "change-me"
