@@ -121,9 +121,15 @@ echo "pdf export ok"
 
 echo "==> document upload"
 printf 'smoke document library content' >/tmp/synthora-smoke-doc.txt
-UPLOAD=$(curl -fsS -X POST "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/documents/upload" \
-  -F "file=@/tmp/synthora-smoke-doc.txt;filename=smoke.txt" \
-  -F "title=Smoke doc")
+UPLOAD_CODE=$(curl -sS -o /tmp/synthora-upload.json -w "%{http_code}" -X POST   "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/documents/upload"   -F "file=@/tmp/synthora-smoke-doc.txt;filename=smoke.txt"   -F "title=Smoke doc")
+if [[ "$UPLOAD_CODE" != "201" ]]; then
+  echo "document upload failed: HTTP $UPLOAD_CODE"
+  cat /tmp/synthora-upload.json || true
+  echo
+  docker compose logs --tail=60 api || true
+  exit 1
+fi
+UPLOAD=$(cat /tmp/synthora-upload.json)
 echo "$UPLOAD" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id"), d; print("upload ok:", d["id"])'
 
 echo "smoke test passed"
