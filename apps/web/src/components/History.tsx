@@ -4,14 +4,22 @@ import { api, RunSummary, SessionSummary } from "../api";
 export function History({ onOpen }: { onOpen: (runId: string) => void }) {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
+  const loadRuns = useCallback((sessionFilter?: string | null) => {
+    const filter =
+      sessionFilter !== undefined ? sessionFilter : selectedSessionId;
     api
-      .listRuns()
+      .listRuns(filter || undefined)
       .then(setRuns)
       .catch((e) => setError(String(e)));
+  }, [selectedSessionId]);
+
+  const loadSessions = useCallback(() => {
     api
       .listSessions()
       .then(setSessions)
@@ -21,8 +29,9 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadRuns();
+    loadSessions();
+  }, [loadRuns, loadSessions]);
 
   async function handleDelete(runId: string, e: MouseEvent) {
     e.stopPropagation();
@@ -46,6 +55,10 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     try {
       await api.deleteSession(sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (selectedSessionId === sessionId) {
+        setSelectedSessionId(null);
+        loadRuns(null);
+      }
     } catch (err) {
       setError(String(err));
     }
@@ -65,6 +78,22 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     }
   }
 
+  async function handleSelectSession(sessionId: string) {
+    setError(null);
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionId(null);
+      loadRuns(null);
+      return;
+    }
+    setSelectedSessionId(sessionId);
+    try {
+      const detail = await api.getSession(sessionId);
+      setRuns(detail.runs);
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   function sessionTitle(id: string | null): string {
     if (!id) return "—";
     const match = sessions.find((s) => s.id === id);
@@ -75,6 +104,18 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
     <section className="panel">
       <div className="action-row">
         <h2 style={{ margin: 0, flex: 1 }}>Research history</h2>
+        {selectedSessionId && (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              setSelectedSessionId(null);
+              loadRuns(null);
+            }}
+          >
+            Clear session filter
+          </button>
+        )}
         {runs.length > 0 && (
           <button
             type="button"
@@ -86,6 +127,12 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
           </button>
         )}
       </div>
+      {selectedSessionId && (
+        <p className="muted">
+          Showing runs for session:{" "}
+          <strong>{sessionTitle(selectedSessionId)}</strong>
+        </p>
+      )}
       {error && <p className="error-text">{error}</p>}
       {runs.length === 0 && !error && <p>No research yet.</p>}
       {runs.length > 0 && (
@@ -143,7 +190,14 @@ export function History({ onOpen }: { onOpen: (runId: string) => void }) {
             {sessions.map((s) => (
               <li key={s.id} className="discourse-turn">
                 <div className="discourse-meta">
-                  <strong>{s.title}</strong>
+                  <button
+                    type="button"
+                    className="ghost"
+                    aria-pressed={selectedSessionId === s.id}
+                    onClick={() => handleSelectSession(s.id)}
+                  >
+                    <strong>{s.title}</strong>
+                  </button>
                   <span className="muted">
                     {" "}
                     · <code>{s.id.slice(0, 8)}…</code>

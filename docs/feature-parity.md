@@ -59,7 +59,7 @@ See also [parity-audit.md](parity-audit.md).
 | Search strategy abstraction (5 strategies + aliases) | ✅ | `strategy_registry` |
 | Search engine abstraction (full catalog) | ✅ | 29 registered engines |
 | LLM provider abstraction + think-tag handling | ✅ | 11 providers |
-| Research history + export md/html/pdf | ✅ | API + web buttons |
+| Research history + export md/html/pdf | ✅ | API + web buttons; structured HTML/PDF export |
 | Docker Compose self-host | ✅ | `docker-compose.yml` |
 | Python SDK | ✅ | `packages/sdk` — full REST mirror incl. upload, export download, news GET |
 | Document library + RAG (`collection` engine) | ✅ | documents API + `document_index` |
@@ -124,6 +124,11 @@ Closed on ``feat/sdk-api-completeness``: SDK ``download_export`` (authenticated
 bytes), ``get_news_subscription``, ``search_documents(max_results=...)``,
 ``health``/``ready``; web client ``getNewsSubscription`` and search
 ``max_results``; streamable MCP workspace isolation test.
+
+Closed on ``feat/export-and-web-parity``: full markdown export subset (fenced
+code, blockquotes, ordered lists, tables, rules); PDF via fpdf2 ``write_html``
+(preserves structure); web ``health``/``ready``/MCP REST wrappers; History
+session drill-down via ``getSession``.
 
 No known functional gaps remain beyond explicit non-goals below.
 
