@@ -4,6 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Compose defaults OLLAMA_BASE_URL to the optional ollama profile service; smoke
+# uses deterministic hash embeddings unless callers override these explicitly.
+export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-}"
+export SYNTHORA_EMBEDDINGS="${SYNTHORA_EMBEDDINGS:-hash}"
+
 echo "==> validating compose file"
 docker compose config --quiet
 
@@ -103,5 +109,27 @@ done
 }
 REPORT=$(curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/report")
 echo "$REPORT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("report_markdown"), d; print("report ok:", d["report_markdown"][:80])'
+
+echo "==> export formats"
+curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/export?format=markdown" | head -c 120
+echo
+curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/export?format=html" | head -c 120
+echo
+PDF_HEAD=$(curl -fsS "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/research/${RUN_ID}/export?format=pdf" | head -c 4)
+[[ "$PDF_HEAD" == "%PDF" ]] || { echo "pdf export failed: $PDF_HEAD"; exit 1; }
+echo "pdf export ok"
+
+echo "==> document upload"
+printf 'smoke document library content' >/tmp/synthora-smoke-doc.txt
+UPLOAD_CODE=$(curl -sS -o /tmp/synthora-upload.json -w "%{http_code}" -X POST   "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/documents/upload"   -F "file=@/tmp/synthora-smoke-doc.txt;filename=smoke.txt"   -F "title=Smoke doc")
+if [[ "$UPLOAD_CODE" != "201" ]]; then
+  echo "document upload failed: HTTP $UPLOAD_CODE"
+  cat /tmp/synthora-upload.json || true
+  echo
+  docker compose logs --tail=60 api || true
+  exit 1
+fi
+UPLOAD=$(cat /tmp/synthora-upload.json)
+echo "$UPLOAD" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id"), d; print("upload ok:", d["id"])'
 
 echo "smoke test passed"

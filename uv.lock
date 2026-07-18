@@ -2098,6 +2098,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pypdf" },
     { name = "python-docx" },
+    { name = "python-multipart" },
     { name = "redis" },
     { name = "synthora-adapters" },
     { name = "synthora-core" },
@@ -2116,6 +2117,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.9" },
     { name = "pypdf", specifier = ">=5.0" },
     { name = "python-docx", specifier = ">=1.1" },
+    { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "redis", specifier = ">=5.0" },
     { name = "synthora-adapters", editable = "packages/adapters" },
     { name = "synthora-core", editable = "packages/core" },
@@ -2205,10 +2207,14 @@ version = "0.1.0"
 source = { editable = "packages/sdk" }
 dependencies = [
     { name = "httpx" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "httpx", specifier = ">=0.27" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "websockets", specifier = ">=12.0" },
+]
 
 [[package]]
 name = "synthora-worker"

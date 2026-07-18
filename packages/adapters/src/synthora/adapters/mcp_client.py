@@ -229,6 +229,8 @@ async def _http_tools_list(
             tools = data.get("tools") if isinstance(data, dict) else None
             if isinstance(tools, list):
                 return tools
+        if resp.status_code not in (404, 405):
+            resp.raise_for_status()
         # Minimal JSON-RPC
         resp = await client.post(
             base_url,
@@ -243,12 +245,16 @@ async def _http_tools_list(
         if resp.status_code >= 400:
             resp.raise_for_status()
         data = resp.json()
+        if isinstance(data, dict) and "error" in data:
+            err = data["error"]
+            message = err.get("message") if isinstance(err, dict) else str(err)
+            raise RuntimeError(f"MCP tools/list failed: {message}")
         result = data.get("result") if isinstance(data, dict) else None
         if isinstance(result, dict) and isinstance(result.get("tools"), list):
             return result["tools"]
         if isinstance(result, list):
             return result
-        return []
+        raise RuntimeError("MCP tools/list returned no tools")
 
 
 async def _http_tools_call(
@@ -273,6 +279,8 @@ async def _http_tools_call(
                 if "result" in data:
                     return str(data["result"])
             return str(data)
+        if resp.status_code not in (404, 405):
+            resp.raise_for_status()
         resp = await client.post(
             base_url,
             json={
@@ -286,8 +294,17 @@ async def _http_tools_call(
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict):
-            if "result" in data:
-                return str(data["result"])
             if "error" in data:
-                return f"error: {data['error']}"
+                err = data["error"]
+                message = err.get("message") if isinstance(err, dict) else str(err)
+                raise RuntimeError(f"MCP tools/call failed: {message}")
+            if "result" in data:
+                result = data["result"]
+                if isinstance(result, dict) and "content" in result:
+                    blocks = result["content"]
+                    if isinstance(blocks, list):
+                        for block in blocks:
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                return str(block.get("text", ""))
+                return str(result)
         return str(data)

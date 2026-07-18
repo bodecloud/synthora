@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
+import httpx
 import pytest
 from synthora.sdk.client import SynthoraClient
 
@@ -169,3 +170,23 @@ def test_sdk_download_export(platform, sdk):
 def test_sdk_health_and_ready(sdk):
     assert sdk.health()["status"] == "ok"
     assert sdk.ready()["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_async_sdk_health_and_mcp(platform):
+    from httpx import ASGITransport
+    from synthora.sdk.async_client import AsyncSynthoraClient
+
+    _client, app = platform
+    async with AsyncSynthoraClient("http://testserver") as sdk:
+        sdk._client = httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        )
+        assert (await sdk.health())["status"] == "ok"
+        tools = await sdk.mcp_tools_list()
+        assert {t["name"] for t in tools["tools"]} == {
+            "start_research",
+            "get_run_status",
+            "get_report",
+            "search_documents",
+        }

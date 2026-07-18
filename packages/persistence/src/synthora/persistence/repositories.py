@@ -596,6 +596,7 @@ class DocumentRepository:
                     created_at=document.created_at,
                 )
             )
+            await s.flush()
             for chunk in chunks or []:
                 s.add(
                     DocumentChunkRow(
