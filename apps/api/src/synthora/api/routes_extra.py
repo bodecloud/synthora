@@ -5,7 +5,6 @@ Mounted via ``app.include_router(extra_router)`` from ``main``.
 
 from __future__ import annotations
 
-import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -743,58 +742,9 @@ async def put_setting(
 async def mcp_tools_list(
     identity: dict = Depends(current_identity),
 ) -> dict:
-    return {
-        "tools": [
-            {
-                "name": "start_research",
-                "description": (
-                    "Start a research run. Args: question, pipeline_id optional."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "question": {"type": "string"},
-                        "pipeline_id": {"type": "string"},
-                    },
-                    "required": ["question"],
-                },
-            },
-            {
-                "name": "get_run_status",
-                "description": "Get status for a research run. Args: run_id.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"run_id": {"type": "string"}},
-                    "required": ["run_id"],
-                },
-            },
-            {
-                "name": "get_report",
-                "description": (
-                    "Fetch the markdown report for a completed run. Args: run_id."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"run_id": {"type": "string"}},
-                    "required": ["run_id"],
-                },
-            },
-            {
-                "name": "search_documents",
-                "description": (
-                    "Search the workspace document library. Args: query, max_results."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "max_results": {"type": "integer"},
-                    },
-                    "required": ["query"],
-                },
-            },
-        ]
-    }
+    from synthora.api.mcp_tools import MCP_TOOL_SPECS
+
+    return {"tools": MCP_TOOL_SPECS}
 
 
 @extra_router.post("/api/v1/mcp/tools/call")
@@ -803,63 +753,17 @@ async def mcp_tools_call(
     request: Request,
     identity: dict = Depends(current_identity),
 ) -> dict:
+    from synthora.api.mcp_tools import McpToolError, execute_mcp_tool
+
     db = get_db(request)
     queue = get_queue(request)
-    name = body.name
-    args = body.arguments or {}
-    if name == "start_research":
-        question = str(args.get("question") or "").strip()
-        if len(question) < 3:
-            raise HTTPException(status_code=422, detail="question required")
-        pipeline_id = str(args.get("pipeline_id") or "fast_research")
-        try:
-            pipeline_registry.get(pipeline_id)
-        except KeyError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        config = RunConfig.model_validate(
-            {**(args.get("config") or {}), "pipeline_id": pipeline_id}
+    try:
+        return await execute_mcp_tool(
+            body.name,
+            body.arguments or {},
+            identity=identity,
+            db=db,
+            queue=queue,
         )
-        run = ResearchRun(
-            question=question,
-            pipeline_id=pipeline_id,
-            workspace_id=identity["workspace_id"],
-            config=config,
-        )
-        await RunRepositorySQL(db).create(run)
-        await queue.enqueue(run.id, {"pipeline_id": run.pipeline_id})
-        return {
-            "content": json.dumps(
-                {"run_id": run.id, "status": run.status.value}
-            )
-        }
-    if name == "get_run_status":
-        run_id = str(args.get("run_id") or "")
-        run = await _get_run_checked(run_id, identity, db)
-        return {
-            "content": json.dumps(
-                {"run_id": run.id, "status": run.status.value, "error": run.error}
-            )
-        }
-    if name == "get_report":
-        run_id = str(args.get("run_id") or "")
-        await _get_run_checked(run_id, identity, db)
-        artifacts = await ArtifactRepository(db).list_for_run(run_id)
-        report = next(
-            (a for a in artifacts if a.kind == ArtifactKind.REPORT_MARKDOWN), None
-        )
-        if report is None:
-            raise HTTPException(status_code=404, detail="report not ready")
-        return {"content": report.content}
-    if name == "search_documents":
-        query = str(args.get("query") or "")
-        max_results = int(args.get("max_results") or 5)
-        embedder = _embedding_model()
-        query_vec = (await embedder.embed([query]))[0] if query else []
-        hits = await DocumentRepository(db).search(
-            identity["workspace_id"],
-            query=query,
-            query_embedding=query_vec or None,
-            max_results=max_results,
-        )
-        return {"content": json.dumps({"results": hits})}
-    raise HTTPException(status_code=404, detail=f"unknown tool: {name}")
+    except McpToolError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message) from exc

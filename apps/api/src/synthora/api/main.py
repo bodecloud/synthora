@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Optional
 
 import redis.asyncio as aioredis
@@ -19,6 +19,12 @@ from synthora.api.auth import (
     hash_password,
     issue_token,
     verify_password,
+)
+from synthora.api.mcp_runtime import bind_mcp_runtime
+from synthora.api.mcp_server import (
+    mcp_streamable_app,
+    refresh_mcp_streamable_mount,
+    synthora_mcp,
 )
 from synthora.api.routes_extra import extra_router
 from synthora.api.settings import settings
@@ -61,6 +67,7 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     app.state.redis = redis
     app.state.queue = RedisJobQueue(redis)
+    bind_mcp_runtime(db, app.state.queue)
     await WorkspaceRepository(db).ensure_default()
     try:
         n = await warm_document_index_from_db(db)
@@ -70,7 +77,10 @@ async def lifespan(app: FastAPI):
         logging.getLogger("synthora.api").exception(
             "document index warm-up failed; collection RAG may be empty"
         )
-    yield
+    async with AsyncExitStack() as stack:
+        refresh_mcp_streamable_mount(app)
+        await stack.enter_async_context(synthora_mcp.session_manager.run())
+        yield
     await redis.aclose()
     await db.dispose()
 
@@ -84,6 +94,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(extra_router)
+app.mount("/mcp", mcp_streamable_app())
 
 
 def get_db() -> Database:

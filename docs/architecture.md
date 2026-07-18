@@ -32,6 +32,7 @@ concrete provider:
 - `embedding_registry` / `resolve_default_embeddings` — OpenAI → Ollama →
   deterministic hash; used by document RAG and research-loop similarity.
 - `page_fetch` — SSRF-safe HTTP(S) page text extraction for thin snippets.
+- MCP — REST shim at `/api/v1/mcp/tools/*` plus streamable HTTP at `/mcp`.
 
 ### Intelligence (`packages/intelligence`)
 
