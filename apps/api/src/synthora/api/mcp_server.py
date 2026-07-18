@@ -8,6 +8,23 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from synthora.api.mcp_runtime import get_mcp_runtime
 from synthora.api.mcp_tools import McpToolError, execute_mcp_tool, identity_from_context
+from synthora.api.settings import settings
+
+
+def build_mcp_transport_security() -> TransportSecuritySettings:
+    """DNS rebinding protection for ``/mcp`` (off by default for local dev/tests)."""
+    if not settings.mcp_dns_rebinding_protection:
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+    def split_csv(value: str) -> list[str]:
+        return [part.strip() for part in value.split(",") if part.strip()]
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=split_csv(settings.mcp_allowed_hosts),
+        allowed_origins=split_csv(settings.mcp_allowed_origins),
+    )
+
 
 synthora_mcp = FastMCP(
     "Synthora",
@@ -18,9 +35,7 @@ synthora_mcp = FastMCP(
     streamable_http_path="/",
     json_response=True,
     stateless_http=True,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False,
-    ),
+    transport_security=build_mcp_transport_security(),
 )
 
 
@@ -32,14 +47,18 @@ def _json_error(exc: McpToolError) -> str:
 async def start_research(
     question: str,
     pipeline_id: str = "fast_research",
+    config: dict | None = None,
     ctx: Context = None,  # type: ignore[assignment]
 ) -> str:
     """Start a research run for a natural-language question."""
     db, queue = get_mcp_runtime()
+    args: dict = {"question": question, "pipeline_id": pipeline_id}
+    if config:
+        args["config"] = config
     try:
         result = await execute_mcp_tool(
             "start_research",
-            {"question": question, "pipeline_id": pipeline_id},
+            args,
             identity=identity_from_context(ctx),
             db=db,
             queue=queue,

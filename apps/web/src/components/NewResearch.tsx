@@ -30,6 +30,9 @@ export function NewResearch({
   const [numPerspectives, setNumPerspectives] = useState(3);
   const [maxDiscourseTurns, setMaxDiscourseTurns] = useState(12);
   const [maxAutonomousCycles, setMaxAutonomousCycles] = useState(3);
+  const [maxConcurrentUnits, setMaxConcurrentUnits] = useState(5);
+  const [maxResearcherIterations, setMaxResearcherIterations] = useState(6);
+  const [maxReactToolCalls, setMaxReactToolCalls] = useState(10);
   const [warmStart, setWarmStart] = useState(true);
   const [pureRag, setPureRag] = useState(false);
   const [simulatedUser, setSimulatedUser] = useState(false);
@@ -90,6 +93,9 @@ export function NewResearch({
       config.num_perspectives = numPerspectives;
       config.max_discourse_turns = maxDiscourseTurns;
       config.max_autonomous_cycles = maxAutonomousCycles;
+      config.max_concurrent_research_units = maxConcurrentUnits;
+      config.max_researcher_iterations = maxResearcherIterations;
+      config.max_react_tool_calls = maxReactToolCalls;
       config.extra = {
         ...(config.extra as Record<string, unknown> | undefined),
         warm_start: warmStart,
@@ -332,6 +338,45 @@ export function NewResearch({
                 setMaxAutonomousCycles(Number(e.target.value) || 1)
               }
               aria-label="max autonomous cycles"
+            />
+          </label>
+          <label className="field">
+            Max concurrent researchers
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={maxConcurrentUnits}
+              onChange={(e) =>
+                setMaxConcurrentUnits(Number(e.target.value) || 1)
+              }
+              aria-label="max concurrent research units"
+            />
+          </label>
+          <label className="field">
+            Max researcher iterations
+            <input
+              type="number"
+              min={1}
+              max={30}
+              value={maxResearcherIterations}
+              onChange={(e) =>
+                setMaxResearcherIterations(Number(e.target.value) || 1)
+              }
+              aria-label="max researcher iterations"
+            />
+          </label>
+          <label className="field">
+            Max ReAct tool calls
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={maxReactToolCalls}
+              onChange={(e) =>
+                setMaxReactToolCalls(Number(e.target.value) || 1)
+              }
+              aria-label="max react tool calls"
             />
           </label>
         </div>
