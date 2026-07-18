@@ -51,5 +51,7 @@ jobs:
           SYNTHORA_AUTH_MODE: none
           SYNTHORA_SECRET_KEY: ci-smoke-secret-key-not-for-prod-32
           SYNTHORA_CHECKPOINT_BACKEND: postgres
+          OPENAI_API_KEY: ""
+          OLLAMA_BASE_URL: ""
         run: bash scripts/smoke.sh
         timeout-minutes: 45
