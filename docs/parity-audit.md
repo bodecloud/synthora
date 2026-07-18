@@ -1,7 +1,7 @@
 # Synthora parity audit checklist
 
 Living checklist against Open Deep Research, STORM/Co-STORM, and Local Deep
-Research. Last verified on `main` after PR #13 (`8e13595`) and ollama-profile overlay.
+Research. Last verified on `main` after PR #15 (`feat/route-parity-guard`).
 
 ## Open Deep Research
 
@@ -61,6 +61,7 @@ Research. Last verified on `main` after PR #13 (`8e13595`) and ollama-profile ov
 | RAG collection engine scoped to run workspace (contextvar) | done |
 | WebSocket auth: token required in session mode, foreign runs rejected | done |
 | MCP outbound URL SSRF guard (`SYNTHORA_MCP_ALLOWLIST`) | done |
+| MCP inbound DNS rebinding protection (optional) | done |
 | Boot refusal on insecure secret key in session mode | done |
 | Durable Postgres checkpointer (compose default `postgres`) | done |
 
@@ -70,8 +71,9 @@ Research. Last verified on `main` after PR #13 (`8e13595`) and ollama-profile ov
 |---|---|
 | Compose default embeddings (`SYNTHORA_EMBEDDINGS=hash`) without Ollama profile | done (PR #13) |
 | Ollama profile overlay (`docker-compose.ollama.yml` sets service URL) | done (PR #14) |
-| Live compose smoke (`scripts/smoke.sh`: research, export, upload) | done |
-| Playwright UI e2e | API-mocked (CI speed); not a live-stack browser gate |
+| Live compose smoke (`scripts/smoke.sh`: research, export, upload, MCP list) | done |
+| Route parity CI guard (`tests/test_api_route_parity.py`) | done (PR #15) |
+| Playwright UI e2e | API-mocked (CI speed); live-stack browser gate (nightly) |
 
 ## Residual gaps (deliberate, not silent)
 

@@ -1,0 +1,71 @@
+name: Nightly live-stack e2e
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  live-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start compose stack
+        env:
+          SYNTHORA_AUTH_MODE: none
+          SYNTHORA_SECRET_KEY: ci-nightly-e2e-secret-key-not-prod-32
+          SYNTHORA_CHECKPOINT_BACKEND: postgres
+          OPENAI_API_KEY: ""
+          OLLAMA_BASE_URL: ""
+          SYNTHORA_EMBEDDINGS: hash
+        run: |
+          docker compose up -d --build
+          for i in $(seq 1 90); do
+            if curl -fsS "http://localhost:8000/health" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS "http://localhost:8000/health"
+          for i in $(seq 1 60); do
+            if curl -fsS "http://localhost:3000/" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS "http://localhost:3000/" >/dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install web deps
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Live-stack Playwright smoke
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          CI: true
+        run: npx playwright test --config playwright.live.config.ts
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-live-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Tear down compose
+        if: always()
+        run: docker compose down
