@@ -113,6 +113,16 @@ class SynthoraClient:
     def export_url(self, run_id: str, fmt: str = "markdown") -> str:
         return f"{self.base_url}/api/v1/research/{run_id}/export?format={fmt}"
 
+    def download_export(self, run_id: str, fmt: str = "markdown") -> bytes:
+        """Download export bytes with auth (session mode safe)."""
+        resp = self._client.get(
+            f"/api/v1/research/{run_id}/export",
+            params={"format": fmt},
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.content
+
     def list_pipelines(self) -> list[dict]:
         return self._get("/api/v1/pipelines")["pipelines"]
 
@@ -199,15 +209,19 @@ class SynthoraClient:
     def delete_document(self, document_id: str) -> dict:
         return self._delete(f"/api/v1/documents/{document_id}")
 
-    def search_documents(self, query: str) -> list[dict]:
-        return self._post("/api/v1/documents/search", {"query": query}).get(
-            "results", []
-        )
+    def search_documents(self, query: str, *, max_results: int = 5) -> list[dict]:
+        return self._post(
+            "/api/v1/documents/search",
+            {"query": query, "max_results": max_results},
+        ).get("results", [])
 
     # -- news ----------------------------------------------------------------
 
     def list_news_subscriptions(self) -> list[dict]:
         return self._get("/api/v1/news/subscriptions")["subscriptions"]
+
+    def get_news_subscription(self, subscription_id: str) -> dict:
+        return self._get(f"/api/v1/news/subscriptions/{subscription_id}")
 
     def create_news_subscription(self, query: str, *, cadence: str = "daily") -> dict:
         return self._post(
@@ -261,6 +275,14 @@ class SynthoraClient:
             "/api/v1/mcp/tools/call",
             {"name": name, "arguments": arguments or {}},
         )
+
+    # -- ops -----------------------------------------------------------------
+
+    def health(self) -> dict:
+        return self._get("/health")
+
+    def ready(self) -> dict:
+        return self._get("/ready")
 
     # -- plumbing ----------------------------------------------------------
 

@@ -8,7 +8,7 @@ from typing import Any, Optional
 import pytest
 from synthora.sdk.client import SynthoraClient
 
-from tests.test_platform import fake_run_config
+from tests.test_platform import fake_run_config, make_executor
 
 pytest_plugins = ("tests.test_platform",)
 
@@ -17,6 +17,10 @@ class _TestResponse:
     def __init__(self, response) -> None:
         self._response = response
         self.status_code = response.status_code
+
+    @property
+    def content(self) -> bytes:
+        return self._response.content
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -32,8 +36,16 @@ class _TestHttpClient:
     def __init__(self, test_client) -> None:
         self._client = test_client
 
-    def get(self, path: str, *, headers: Optional[dict] = None) -> _TestResponse:
-        return _TestResponse(self._client.get(path, headers=headers or {}))
+    def get(
+        self,
+        path: str,
+        *,
+        headers: Optional[dict] = None,
+        params: Optional[dict] = None,
+    ) -> _TestResponse:
+        return _TestResponse(
+            self._client.get(path, headers=headers or {}, params=params or {})
+        )
 
     def post(
         self,
@@ -121,3 +133,39 @@ def test_sdk_mcp_tools_call(sdk):
     payload = json.loads(started["content"])
     assert payload["run_id"]
     assert payload["status"] == "queued"
+
+
+def test_sdk_get_news_subscription(sdk):
+    sub = sdk.create_news_subscription("climate tech", cadence="daily")
+    fetched = sdk.get_news_subscription(sub["id"])
+    assert fetched["id"] == sub["id"]
+    assert fetched["query"] == "climate tech"
+
+
+def test_sdk_search_documents_max_results(sdk):
+    sdk.create_document("Alpha", "alpha unique token one two three")
+    sdk.create_document("Beta", "beta unique token four five six")
+    hits = sdk.search_documents("unique token", max_results=1)
+    assert len(hits) == 1
+
+
+def test_sdk_download_export(platform, sdk):
+    client, app = platform
+    run_id = client.post(
+        "/api/v1/research",
+        json={
+            "question": "Export via SDK?",
+            "pipeline_id": "fast_research",
+            "config": fake_run_config(),
+        },
+    ).json()["run_id"]
+    client.portal.call(make_executor(app).execute, run_id)
+    markdown = sdk.download_export(run_id, "markdown")
+    assert b"Integration Report" in markdown
+    html = sdk.download_export(run_id, "html")
+    assert b"<" in html
+
+
+def test_sdk_health_and_ready(sdk):
+    assert sdk.health()["status"] == "ok"
+    assert sdk.ready()["status"] == "ready"

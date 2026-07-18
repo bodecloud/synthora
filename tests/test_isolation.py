@@ -176,6 +176,57 @@ def test_session_auth_workspace_and_ws_isolation(platform):
         )
         assert alice_mcp.status_code == 200
         assert json.loads(alice_mcp.json()["content"])["run_id"] == run_id
+
+        # Streamable MCP must also reject cross-workspace status reads.
+        stream_headers = {
+            **alice_h,
+            "Accept": "application/json, text/event-stream",
+        }
+        init = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "iso-test", "version": "0.1"},
+                },
+            },
+            headers=stream_headers,
+        )
+        assert init.status_code == 200
+        session_id = init.headers.get("mcp-session-id")
+        bob_stream_h = {
+            **bob_h,
+            "Accept": "application/json, text/event-stream",
+        }
+        if session_id:
+            bob_stream_h["Mcp-Session-Id"] = session_id
+        bob_stream = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_run_status",
+                    "arguments": {"run_id": run_id},
+                },
+            },
+            headers=bob_stream_h,
+        )
+        assert bob_stream.status_code == 200
+        bob_text = next(
+            (
+                b["text"]
+                for b in bob_stream.json()["result"]["content"]
+                if b.get("type") == "text"
+            ),
+            "",
+        )
+        assert "run not found" in json.loads(bob_text)["error"]
     finally:
         settings.auth_mode = "none"
         settings.secret_key = "change-me"
