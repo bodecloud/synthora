@@ -135,6 +135,11 @@ integration tests; ``AsyncSynthoraClient`` with ``iter_run_events`` WebSocket;
 News subscription filter + ``getNewsSubscription`` UX; smoke validates export
 formats and document upload.
 
+Closed on ``feat/compose-embeddings-default``: compose defaults
+``SYNTHORA_EMBEDDINGS=hash`` and empty ``OLLAMA_BASE_URL`` (no phantom Ollama
+when profile disabled); sync ``SynthoraClient.iter_run_events``; embedding
+default tests; parity audit doc sync.
+
 No known functional gaps remain beyond explicit non-goals below.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —

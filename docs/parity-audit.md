@@ -1,7 +1,7 @@
 # Synthora parity audit checklist
 
 Living checklist against Open Deep Research, STORM/Co-STORM, and Local Deep
-Research. Updated on `feat/synthora-full-parity`.
+Research. Last verified on `main` after PR #12 (`2537bd6`).
 
 ## Open Deep Research
 
@@ -46,10 +46,11 @@ Research. Updated on `feat/synthora-full-parity`.
 | Settings persistence | done |
 | Export md/html/pdf | done |
 | Delete / clear history | done |
-| MCP server (outbound tools API) | done |
+| MCP server (inbound agent surface + outbound researcher tools) | done |
 | News / subscriptions | done |
 | Metrics | done |
 | Chat / follow-up research | done |
+| Python SDK (sync + async + WebSocket iterators) | done |
 
 ## Security & isolation (verified by `tests/test_isolation.py`)
 
@@ -63,10 +64,18 @@ Research. Updated on `feat/synthora-full-parity`.
 | Boot refusal on insecure secret key in session mode | done |
 | Durable Postgres checkpointer (compose default `postgres`) | done |
 
+## Deployment defaults
+
+| Item | Status |
+|---|---|
+| Compose default embeddings (`SYNTHORA_EMBEDDINGS=hash`) without Ollama profile | done (PR #13) |
+| Live compose smoke (`scripts/smoke.sh`: research, export, upload) | done |
+| Playwright UI e2e | API-mocked (CI speed); not a live-stack browser gate |
+
 ## Residual gaps (deliberate, not silent)
 
-None remaining for in-scope functionality. Compose smoke and Playwright
-API-mock e2e are verified.
+No in-scope product/API/worker gaps. Inbound MCP exposes four agent tools
+(not the full REST catalog) by design. Chat enqueues `fast_research` by design.
 
 ## Explicit non-goals
 
@@ -74,3 +83,4 @@ API-mock e2e are verified.
 - Per-user SQLCipher (shared Postgres + optional auth by design)
 - STORM Streamlit demo
 - Paper eval dataset construction pipelines
+- Full CommonMark/GFM export (Synthora report subset only)

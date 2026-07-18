@@ -172,6 +172,43 @@ def test_sdk_health_and_ready(sdk):
     assert sdk.ready()["status"] == "ready"
 
 
+def test_sync_events_ws_url(sdk):
+    sdk.token = "tok"
+    url = sdk.events_ws_url("run-1")
+    assert "/api/v1/research/run-1/events/ws" in url
+    assert "token=tok" in url
+
+
+def test_sync_iter_run_events(monkeypatch):
+    from websockets.exceptions import ConnectionClosedOK
+
+    payloads = [
+        {"type": "status", "message": "queued"},
+        {"type": "done", "message": "completed"},
+    ]
+
+    class _FakeWS:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def recv(self):
+            if payloads:
+                return json.dumps(payloads.pop(0))
+            raise ConnectionClosedOK(None, None)
+
+    monkeypatch.setattr(
+        "websockets.sync.client.connect",
+        lambda *_a, **_k: _FakeWS(),
+    )
+    client = SynthoraClient("http://localhost:8000")
+    events = list(client.iter_run_events("run-1"))
+    assert events[0]["type"] == "status"
+    assert events[-1]["type"] == "done"
+
+
 @pytest.mark.asyncio
 async def test_async_sdk_health_and_mcp(platform):
     from httpx import ASGITransport
