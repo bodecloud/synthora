@@ -64,7 +64,7 @@ See also [parity-audit.md](parity-audit.md).
 | Python SDK | ✅ | `packages/sdk` |
 | Document library + RAG (`collection` engine) | ✅ | documents API + `document_index` |
 | Provider settings persistence | ✅ | `/api/v1/settings` + Settings UI; resolvers prefer workspace overlay then env; GET responses redact secrets |
-| MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` |
+| MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` REST + `/mcp` streamable HTTP |
 | News / subscriptions | ✅ | `/api/v1/news/*` + worker poller |
 | Metrics / usage tracking | ✅ | `RunMetrics` + API |
 | Follow-up / chat research | ✅ | `/followup`, `/chat` + web views |
@@ -104,12 +104,15 @@ SerpAPI / Mojeek resolve workspace provider settings; academic
 ``citation_verify`` drops rejected sources before section writing; key-required
 engines without credentials are filtered and fail loud at run start.
 
-Still open (non-blocking polish): optional streamable-HTTP MCP server
-(REST shim at ``/api/v1/mcp/tools/*`` remains the supported surface).
-
 Closed on ``feat/embed-upload-docs``: research-loop embeddings via
 ``resolve_research_embeddings`` (OpenAI → Ollama → hash), multipart document
 upload (``.txt``/``.md``/``.pdf``/``.docx``), and architecture catalog sync.
+
+Closed on ``feat/mcp-streamable-http``: official MCP streamable HTTP transport
+at ``/mcp`` (same four tools as the REST shim), with shared execution in
+``mcp_tools.py`` and session manager wired into the API lifespan.
+
+No known functional gaps remain beyond explicit non-goals below.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —
 intentional product shape. Explicit non-goals remain below.
