@@ -48,7 +48,13 @@ LangGraph Studio: `uv run langgraph dev` (uses `langgraph.json`).
 docker compose up -d
 ```
 
-Brings up: API (`:8000`), worker, web UI (`:3000`), Postgres, Redis, SearXNG. Optional local LLM: `docker compose --profile ollama up -d`.
+Brings up: API (`:8000`), worker, web UI (`:3000`), Postgres, Redis, SearXNG. Optional local LLM:
+
+```bash
+docker compose --profile ollama -f docker-compose.yml -f docker-compose.ollama.yml up -d
+```
+
+The overlay sets `OLLAMA_BASE_URL=http://ollama:11434` on API/worker. Default embeddings use `SYNTHORA_EMBEDDINGS=hash` (no Ollama required).
 
 Key environment variables (see `.env.example`): `SYNTHORA_DATABASE_URL`, `SYNTHORA_REDIS_URL`, `SYNTHORA_AUTH_MODE` (`none`|`session`), `OPENAI_API_KEY` / `OPENAI_BASE_URL`, `TAVILY_API_KEY`, `SEARXNG_URL`.
 

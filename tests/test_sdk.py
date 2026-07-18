@@ -210,6 +210,41 @@ def test_sync_iter_run_events(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_async_iter_run_events(monkeypatch):
+    from synthora.sdk.async_client import AsyncSynthoraClient
+    from websockets.exceptions import ConnectionClosedOK
+
+    payloads = [
+        {"type": "status", "message": "queued"},
+        {"type": "done", "message": "completed"},
+    ]
+
+    class _FakeWS:
+        def __init__(self):
+            self._queue = list(payloads)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        async def recv(self):
+            if self._queue:
+                return json.dumps(self._queue.pop(0))
+            raise ConnectionClosedOK(None, None)
+
+    monkeypatch.setattr(
+        "websockets.connect",
+        lambda *_a, **_k: _FakeWS(),
+    )
+    client = AsyncSynthoraClient("http://localhost:8000")
+    events = [event async for event in client.iter_run_events("run-1")]
+    assert events[0]["type"] == "status"
+    assert events[-1]["type"] == "done"
+
+
+@pytest.mark.asyncio
 async def test_async_sdk_health_and_mcp(platform):
     from httpx import ASGITransport
     from synthora.sdk.async_client import AsyncSynthoraClient

@@ -1,7 +1,7 @@
 # Synthora parity audit checklist
 
 Living checklist against Open Deep Research, STORM/Co-STORM, and Local Deep
-Research. Last verified on `main` after PR #12 (`2537bd6`).
+Research. Last verified on `main` after PR #13 (`8e13595`) and ollama-profile overlay.
 
 ## Open Deep Research
 
@@ -69,6 +69,7 @@ Research. Last verified on `main` after PR #12 (`2537bd6`).
 | Item | Status |
 |---|---|
 | Compose default embeddings (`SYNTHORA_EMBEDDINGS=hash`) without Ollama profile | done (PR #13) |
+| Ollama profile overlay (`docker-compose.ollama.yml` sets service URL) | done (PR #14) |
 | Live compose smoke (`scripts/smoke.sh`: research, export, upload) | done |
 | Playwright UI e2e | API-mocked (CI speed); not a live-stack browser gate |
 

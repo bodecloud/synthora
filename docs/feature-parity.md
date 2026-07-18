@@ -140,6 +140,11 @@ Closed on ``feat/compose-embeddings-default``: compose defaults
 when profile disabled); sync ``SynthoraClient.iter_run_events``; embedding
 default tests; parity audit doc sync.
 
+Closed on ``feat/ollama-profile-and-async-ws``: ``docker-compose.ollama.yml``
+overlay wires ``OLLAMA_BASE_URL`` for the ollama profile; async
+``iter_run_events`` handles ``ConnectionClosed`` like sync; README/smoke
+comments updated.
+
 No known functional gaps remain beyond explicit non-goals below.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —

@@ -4,8 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Compose defaults OLLAMA_BASE_URL to the optional ollama profile service; smoke
-# uses deterministic hash embeddings unless callers override these explicitly.
+# Compose defaults hash embeddings (no Ollama required). Override OPENAI/OLLAMA as needed.
 export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-}"
 export SYNTHORA_EMBEDDINGS="${SYNTHORA_EMBEDDINGS:-hash}"
