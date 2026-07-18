@@ -61,7 +61,7 @@ See also [parity-audit.md](parity-audit.md).
 | LLM provider abstraction + think-tag handling | ✅ | 11 providers |
 | Research history + export md/html/pdf | ✅ | API + web buttons |
 | Docker Compose self-host | ✅ | `docker-compose.yml` |
-| Python SDK | ✅ | `packages/sdk` |
+| Python SDK | ✅ | `packages/sdk` — full REST mirror incl. upload, export download, news GET |
 | Document library + RAG (`collection` engine) | ✅ | documents API + `document_index` |
 | Provider settings persistence | ✅ | `/api/v1/settings` + Settings UI; resolvers prefer workspace overlay then env; GET responses redact secrets |
 | MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` REST + `/mcp` streamable HTTP; optional ``config`` on ``start_research`` |
@@ -119,6 +119,11 @@ tools; env-driven MCP DNS rebinding protection
 (``SYNTHORA_MCP_DNS_REBINDING_PROTECTION``); web RunConfig exposes
 ``max_concurrent_research_units``, ``max_researcher_iterations``, and
 ``max_react_tool_calls``; SDK/MCP/isolation regression tests.
+
+Closed on ``feat/sdk-api-completeness``: SDK ``download_export`` (authenticated
+bytes), ``get_news_subscription``, ``search_documents(max_results=...)``,
+``health``/``ready``; web client ``getNewsSubscription`` and search
+``max_results``; streamable MCP workspace isolation test.
 
 No known functional gaps remain beyond explicit non-goals below.
 

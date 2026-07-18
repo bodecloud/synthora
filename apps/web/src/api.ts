@@ -378,6 +378,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ query, cadence }),
     }),
+  getNewsSubscription: (id: string) =>
+    request<NewsSubscription>(`/api/v1/news/subscriptions/${id}`),
   deleteNewsSubscription: (id: string) =>
     request<{ deleted: boolean; id: string }>(
       `/api/v1/news/subscriptions/${id}`,
@@ -446,12 +448,12 @@ export const api = {
     request<{ deleted: boolean; id: string }>(`/api/v1/documents/${id}`, {
       method: "DELETE",
     }),
-  searchDocuments: (query: string) =>
+  searchDocuments: (query: string, maxResults = 5) =>
     request<{ results: Array<Record<string, unknown>> }>(
       "/api/v1/documents/search",
       {
         method: "POST",
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, max_results: maxResults }),
       },
     ),
 };
