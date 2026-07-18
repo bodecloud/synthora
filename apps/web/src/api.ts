@@ -456,6 +456,19 @@ export const api = {
         body: JSON.stringify({ query, max_results: maxResults }),
       },
     ),
+
+  health: () => request<{ status: string }>("/health"),
+  ready: () => request<{ status: string }>("/ready"),
+  mcpToolsList: () =>
+    request<{ tools: Array<Record<string, unknown>> }>(
+      "/api/v1/mcp/tools/list",
+      { method: "POST", body: "{}" },
+    ),
+  mcpToolsCall: (name: string, args: Record<string, unknown> = {}) =>
+    request<{ content: string }>("/api/v1/mcp/tools/call", {
+      method: "POST",
+      body: JSON.stringify({ name, arguments: args }),
+    }),
 };
 
 export function eventsSocketUrl(runId: string): string {
