@@ -159,6 +159,7 @@ class AsyncSynthoraClient:
     async def iter_run_events(self, run_id: str) -> AsyncIterator[dict]:
         """Stream live events from the run WebSocket."""
         import websockets
+        from websockets.exceptions import ConnectionClosed
 
         url = self.events_ws_url(run_id)
         headers = []
@@ -166,7 +167,10 @@ class AsyncSynthoraClient:
             headers.append(("Authorization", f"Bearer {self.token}"))
         async with websockets.connect(url, additional_headers=headers) as ws:
             while True:
-                raw = await ws.recv()
+                try:
+                    raw = await ws.recv()
+                except ConnectionClosed:
+                    break
                 yield json.loads(raw)
 
     async def chat(self, message: str, *, session_id: Optional[str] = None) -> dict:

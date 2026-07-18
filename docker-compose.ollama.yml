@@ -1,0 +1,10 @@
+# Optional overlay when starting with `--profile ollama`.
+# Usage:
+#   docker compose --profile ollama -f docker-compose.yml -f docker-compose.ollama.yml up -d
+services:
+  api:
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+  worker:
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
