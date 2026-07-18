@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 # uses deterministic hash embeddings unless callers override these explicitly.
 export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-}"
+export SYNTHORA_EMBEDDINGS="${SYNTHORA_EMBEDDINGS:-hash}"
 
 echo "==> validating compose file"
 docker compose config --quiet

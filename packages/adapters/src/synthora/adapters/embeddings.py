@@ -183,6 +183,9 @@ embedding_registry.register("hash", lambda m: HashEmbeddings(m))
 
 def resolve_default_embeddings() -> EmbeddingModel:
     """Prefer OpenAI when keyed, else Ollama when base URL set, else hash."""
+    forced = _env("SYNTHORA_EMBEDDINGS", default="").strip().lower()
+    if forced in ("hash", "offline"):
+        return HashEmbeddings()
     if _env("OPENAI_API_KEY"):
         return OpenAIEmbeddings()
     if _env("OLLAMA_BASE_URL") or _env("OLLAMA_EMBED_MODEL"):

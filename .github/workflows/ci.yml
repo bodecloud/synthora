@@ -53,5 +53,6 @@ jobs:
           SYNTHORA_CHECKPOINT_BACKEND: postgres
           OPENAI_API_KEY: ""
           OLLAMA_BASE_URL: ""
+          SYNTHORA_EMBEDDINGS: hash
         run: bash scripts/smoke.sh
         timeout-minutes: 45
