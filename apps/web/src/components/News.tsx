@@ -4,6 +4,7 @@ import { api, NewsItem, NewsSubscription } from "../api";
 export function News() {
   const [subs, setSubs] = useState<NewsSubscription[]>([]);
   const [items, setItems] = useState<NewsItem[]>([]);
+  const [filterSubId, setFilterSubId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [cadence, setCadence] = useState("daily");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -12,10 +13,12 @@ export function News() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  async function refresh(subscriptionId?: string | null) {
+    const filter =
+      subscriptionId !== undefined ? subscriptionId : filterSubId;
     const [s, i] = await Promise.all([
       api.listNewsSubscriptions(),
-      api.listNewsItems(),
+      api.listNewsItems(filter || undefined),
     ]);
     setSubs(s);
     setItems(i);
@@ -24,6 +27,11 @@ export function News() {
   useEffect(() => {
     refresh().catch((e) => setError(String(e)));
   }, []);
+
+  function subLabel(subscriptionId: string): string {
+    const match = subs.find((s) => s.id === subscriptionId);
+    return match?.query || `${subscriptionId.slice(0, 8)}…`;
+  }
 
   async function createSub() {
     if (!query.trim()) return;
@@ -59,7 +67,12 @@ export function News() {
     try {
       await api.deleteNewsSubscription(id);
       if (editingId === id) setEditingId(null);
-      await refresh();
+      if (filterSubId === id) {
+        setFilterSubId(null);
+        await refresh(null);
+      } else {
+        await refresh();
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -89,6 +102,18 @@ export function News() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function toggleFilter(sub: NewsSubscription) {
+    setError(null);
+    if (filterSubId === sub.id) {
+      setFilterSubId(null);
+      await refresh(null);
+      return;
+    }
+    setFilterSubId(sub.id);
+    await api.getNewsSubscription(sub.id);
+    await refresh(sub.id);
   }
 
   return (
@@ -162,7 +187,14 @@ export function News() {
             ) : (
               <>
                 <div>
-                  <strong>{s.query}</strong>
+                  <button
+                    type="button"
+                    className="ghost"
+                    aria-pressed={filterSubId === s.id}
+                    onClick={() => toggleFilter(s)}
+                  >
+                    <strong>{s.query}</strong>
+                  </button>
                   <span className="muted"> · {s.cadence}</span>
                 </div>
                 <div className="action-row">
@@ -198,10 +230,26 @@ export function News() {
       </ul>
 
       <h3>Items</h3>
+      {filterSubId && (
+        <p className="muted">
+          Filtered to subscription: <strong>{subLabel(filterSubId)}</strong>{" "}
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              setFilterSubId(null);
+              refresh(null).catch((e) => setError(String(e)));
+            }}
+          >
+            Show all
+          </button>
+        </p>
+      )}
       {items.length === 0 && <p className="muted">No news items yet.</p>}
       <ul className="history-list">
         {items.map((item) => (
           <li key={item.id}>
+            <span className="muted">{subLabel(item.subscription_id)} · </span>
             <a href={item.url} target="_blank" rel="noreferrer">
               {item.title || item.url}
             </a>

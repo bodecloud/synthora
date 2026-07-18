@@ -113,6 +113,14 @@ class SynthoraClient:
     def export_url(self, run_id: str, fmt: str = "markdown") -> str:
         return f"{self.base_url}/api/v1/research/{run_id}/export?format={fmt}"
 
+    def events_ws_url(self, run_id: str) -> str:
+        """WebSocket URL for live run events (append ``?token=`` in session mode)."""
+        ws_base = self.base_url.replace("https://", "wss://").replace(
+            "http://", "ws://"
+        )
+        suffix = f"?token={self.token}" if self.token else ""
+        return f"{ws_base}/api/v1/research/{run_id}/events/ws{suffix}"
+
     def download_export(self, run_id: str, fmt: str = "markdown") -> bytes:
         """Download export bytes with auth (session mode safe)."""
         resp = self._client.get(

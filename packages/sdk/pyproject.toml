@@ -3,7 +3,7 @@ name = "synthora-sdk"
 version = "0.1.0"
 description = "Synthora Python client SDK"
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.27"]
+dependencies = ["httpx>=0.27", "websockets>=12.0"]
 
 [build-system]
 requires = ["hatchling"]

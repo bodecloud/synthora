@@ -2205,10 +2205,14 @@ version = "0.1.0"
 source = { editable = "packages/sdk" }
 dependencies = [
     { name = "httpx" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "httpx", specifier = ">=0.27" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "websockets", specifier = ">=12.0" },
+]
 
 [[package]]
 name = "synthora-worker"

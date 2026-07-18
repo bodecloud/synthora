@@ -61,7 +61,7 @@ See also [parity-audit.md](parity-audit.md).
 | LLM provider abstraction + think-tag handling | ✅ | 11 providers |
 | Research history + export md/html/pdf | ✅ | API + web buttons; structured HTML/PDF export |
 | Docker Compose self-host | ✅ | `docker-compose.yml` |
-| Python SDK | ✅ | `packages/sdk` — full REST mirror incl. upload, export download, news GET |
+| Python SDK | ✅ | `packages/sdk` — sync + async clients, WebSocket events, full REST mirror |
 | Document library + RAG (`collection` engine) | ✅ | documents API + `document_index` |
 | Provider settings persistence | ✅ | `/api/v1/settings` + Settings UI; resolvers prefer workspace overlay then env; GET responses redact secrets |
 | MCP server exposing Synthora tools | ✅ | `/api/v1/mcp/tools/*` REST + `/mcp` streamable HTTP; optional ``config`` on ``start_research`` |
@@ -129,6 +129,11 @@ Closed on ``feat/export-and-web-parity``: full markdown export subset (fenced
 code, blockquotes, ordered lists, tables, rules); PDF via fpdf2 ``write_html``
 (preserves structure); web ``health``/``ready``/MCP REST wrappers; History
 session drill-down via ``getSession``.
+
+Closed on ``feat/mcp-async-hardening``: outbound MCP HTTP fallback fail-loud +
+integration tests; ``AsyncSynthoraClient`` with ``iter_run_events`` WebSocket;
+News subscription filter + ``getNewsSubscription`` UX; smoke validates export
+formats and document upload.
 
 No known functional gaps remain beyond explicit non-goals below.
 
