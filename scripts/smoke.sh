@@ -131,4 +131,9 @@ fi
 UPLOAD=$(cat /tmp/synthora-upload.json)
 echo "$UPLOAD" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id"), d; print("upload ok:", d["id"])'
 
+echo "==> MCP REST tools/list"
+curl -fsS -X POST "http://localhost:${SYNTHORA_API_PORT:-8000}/api/v1/mcp/tools/list" \
+  -H 'Content-Type: application/json' -d '{}' \
+  | python3 -c "import json,sys; names={t['name'] for t in json.load(sys.stdin)['tools']}; expected={'start_research','get_run_status','get_report','search_documents'}; assert names==expected, names"
+
 echo "smoke test passed"

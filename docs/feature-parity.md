@@ -145,6 +145,12 @@ overlay wires ``OLLAMA_BASE_URL`` for the ollama profile; async
 ``iter_run_events`` handles ``ConnectionClosed`` like sync; README/smoke
 comments updated.
 
+Closed on ``feat/route-parity-guard`` (PR #15): CI regression test
+(``tests/test_api_route_parity.py``) discovers routes via OpenAPI and asserts
+every ``/api/v1`` REST path appears in sync SDK, async SDK, and web ``api.ts``;
+compose smoke probes MCP REST ``tools/list``; nightly live-stack Playwright
+workflow added.
+
 No known functional gaps remain beyond explicit non-goals below.
 
 Chat remains session-scoped ``fast_research`` with prior-report memory —

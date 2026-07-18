@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: "live-smoke.spec.ts",
   timeout: 60_000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
